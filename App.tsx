@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Movie, MovieCategory, Genre, CurrentUser } from './types';
-import Sidebar from './components/Sidebar';
+import Sidebar from './Sidebar';
 import MovieGrid from './components/MovieGrid';
 import MovieDetails from './components/MovieDetails';
 import LoginPanel from './components/LoginPanel';
