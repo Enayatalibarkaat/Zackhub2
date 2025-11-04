@@ -1,0 +1,5 @@
+{
+  "name": "ZackHub",
+  "description": "A movie and series browsing website that displays content from a managed list. Features a hidden owner panel for content management.",
+  "requestFramePermissions": []
+}
