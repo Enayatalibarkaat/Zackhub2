@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { getAdmins } from '../utils';
-import { CurrentUser, AdminUser } from '../types';
+import { getAdmins } from './utils';
+import { CurrentUser, AdminUser } from './types';
 
 interface LoginPanelProps {
   onLoginSuccess: (user: CurrentUser) => void;
