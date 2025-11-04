@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Movie, MovieCategory, Genre, CurrentUser } from './types';
 import Sidebar from './Sidebar';
-import MovieGrid from './components/MovieGrid';
-import MovieDetails from './components/MovieDetails';
-import LoginPanel from './components/LoginPanel';
-import AdminPanel from './components/AdminPanel';
-import Header from './components/Header';
-import CategoryNav from './components/CategoryNav';
-import Pagination from './components/Pagination';
-import Footer from './components/Footer';
-import DisclaimerModal from './components/DisclaimerModal';
+import MovieGrid from './MovieGrid';
+import MovieDetails from './MovieDetails';
+import LoginPanel from './LoginPanel';
+import AdminPanel from './AdminPanel';
+import Header from './Header';
+import CategoryNav from './CategoryNav';
+import Pagination from './Pagination';
+import Footer from './Footer';
+import DisclaimerModal from './DisclaimerModal';
 
 // Mock data to simulate fetching from a Telegram channel
 const baseMovies: Movie[] = [
