@@ -10,8 +10,7 @@ import CategoryNav from './CategoryNav';
 import Pagination from './Pagination';
 import Footer from './Footer';
 import DisclaimerModal from './DisclaimerModal';
-import connectDB from "./db.js";
-connectDB();
+
 // Mock data to simulate fetching from a Telegram channel
 const baseMovies: Movie[] = [
   { id: '1', title: 'Inception', category: 'hollywood', posterUrl: 'https://image.tmdb.org/t/p/w500/oYuLEt3zVCKq27gApcjBJU3GZpA.jpg', backdropUrl: 'https://image.tmdb.org/t/p/w1280/8ZTVqvKDQ8emSGUEMjsS4yHAwrp.jpg', tagline: "Your mind is the scene of the crime.", description: 'A thief who steals corporate secrets through the use of dream-sharing technology is given the inverse task of planting an idea into the mind of a C.E.O.', downloadLinks: [{quality: '480p', url: '#'}, {quality: '720p', url: '#'}, {quality: '1080p', url: '#'}], telegramLinks: [{ quality: '1080p', fileId: 'ZackHub_Inception_2010' }], actors: 'Leonardo DiCaprio, Joseph Gordon-Levitt, Elliot Page', director: 'Christopher Nolan', producer: 'Emma Thomas, Christopher Nolan', trailerLink: 'https://www.youtube.com/embed/YoHD9XEInc0', rating: 8.8, genres: [{id: 28, name: "Action"}, {id: 878, name: "Science Fiction"}, {id: 12, name: "Adventure"}], releaseDate: '2010-07-15', runtime: 148 },
