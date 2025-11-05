@@ -1,21 +1,22 @@
-// Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+import { getFirestore } from "firebase/firestore";
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// Your web app's Firebase configuration is now read from secure environment variables.
+// FIX: Cast `import.meta` to `any` to bypass TypeScript error about missing `env` property. This is a common workaround when TypeScript environment types for Vite are not configured.
+const env = (import.meta as any).env;
+
 const firebaseConfig = {
-  apiKey: "AIzaSyB_CE95Hyc_KLU4LljAwicTT7UOIaA1T_c",
-  authDomain: "zackhub2.firebaseapp.com",
-  projectId: "zackhub2",
-  storageBucket: "zackhub2.firebasestorage.app",
-  messagingSenderId: "96379295937",
-  appId: "1:96379295937:web:7e466c3d401fb54e0b9c40",
-  measurementId: "G-5VHBYL13TQ"
+  apiKey: env.VITE_FIREBASE_API_KEY,
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: env.VITE_FIREBASE_APP_ID,
+  measurementId: env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+
+// Get a Firestore instance to interact with the database
+export const db = getFirestore(app);
