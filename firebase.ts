@@ -1,20 +1,21 @@
+// Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
 
-// जरूरी: नीचे दी गई प्लेसहोल्डर वैल्यूज को अपने खुद के Firebase प्रोजेक्ट कॉन्फ़िगरेशन से बदलें।
-// यह जानकारी आपको अपने Firebase प्रोजेक्ट की सेटिंग्स में मिलेगी।
-// देखें: https://firebase.google.com/docs/web/setup#available-libraries
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSy_REPLACE_WITH_YOUR_KEY",
-  authDomain: "your-project-id.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project-id.appspot.com",
-  messagingSenderId: "your-sender-id",
-  appId: "1:your-sender-id:web:your-app-id"
+  apiKey: "AIzaSyB_CE95Hyc_KLU4LljAwicTT7UOIaA1T_c",
+  authDomain: "zackhub2.firebaseapp.com",
+  projectId: "zackhub2",
+  storageBucket: "zackhub2.firebasestorage.app",
+  messagingSenderId: "96379295937",
+  appId: "1:96379295937:web:7e466c3d401fb54e0b9c40",
+  measurementId: "G-5VHBYL13TQ"
 };
 
-// Firebase को शुरू करें
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-
-// डेटाबेस से इंटरैक्ट करने के लिए Firestore इंस्टैंस प्राप्त करें
-export const db = getFirestore(app);
+const analytics = getAnalytics(app);
