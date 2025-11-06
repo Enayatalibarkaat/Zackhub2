@@ -2,6 +2,7 @@
   "name": "netlify-functions",
   "version": "1.0.0",
   "dependencies": {
-    "mongoose": "^7.6.0"
+    "mongoose": "^7.6.0",
+    "dotenv": "^16.4.5"
   }
 }
