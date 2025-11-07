@@ -54,7 +54,7 @@ const App: React.FC = () => {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/.netlify/functions/myApi");
+        const res = await fetch("/.netlify/functions/getMovies");
         const json = await res.json();
         setMovies((json.movies || []) as Movie[]);
       } catch (err) {
