@@ -1,4 +1,4 @@
-import connect from "./connect.js";
+import { default as connect } from "./connect.js";
 import Movie from "./moviesSchema.js";
 
 export const handler = async () => {
