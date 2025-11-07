@@ -111,6 +111,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   // TMDB
   const [tmdbSearchQuery, setTmdbSearchQuery] = useState("");
   const [tmdbResults, setTmdbResults] = useState<TmdbSearchResult[]>([]);
+  // ✅ Filter only movies & tv (ignore person / company etc.)
+const filteredTmdbResults = tmdbResults.filter(
+  (item) => item.media_type === "movie" || item.media_type === "tv"
+);
   const [isTmdbLoading, setIsTmdbLoading] = useState(false);
   const [tmdbError, setTmdbError] = useState<string | null>(null);
 
