@@ -2,22 +2,20 @@ import { connect } from "./connect.js";
 import Movie from "./moviesSchema.js";
 
 export const handler = async (event) => {
-  if (event.httpMethod !== "DELETE") {
+  if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
   }
 
   try {
     const { id } = JSON.parse(event.body || "{}");
-
     if (!id) {
       return { statusCode: 400, body: JSON.stringify({ error: "Movie ID is required" }) };
     }
 
     await connect();
 
-    const deletedMovie = await Movie.findByIdAndDelete(id);
-
-    if (!deletedMovie) {
+    const deleted = await Movie.findByIdAndDelete(id);
+    if (!deleted) {
       return { statusCode: 404, body: JSON.stringify({ error: "Movie not found" }) };
     }
 
@@ -29,7 +27,7 @@ export const handler = async (event) => {
     console.error("Error deleting movie:", error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ success: false, error: "Failed to delete movie" }),
+      body: JSON.stringify({ error: "Failed to delete movie" }),
     };
   }
 };
