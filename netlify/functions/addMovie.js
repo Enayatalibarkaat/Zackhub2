@@ -1,4 +1,4 @@
-import { connectDB } from "./connect.js";
+import { connect } from "./connect.js";
 import Movie from "./moviesSchema.js";
 
 export const handler = async (event) => {
@@ -13,7 +13,7 @@ export const handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: "Movie title is required" }) };
     }
 
-    await connectDB();
+    await connect();
     const newMovie = new Movie(data);
     await newMovie.save();
 
