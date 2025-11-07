@@ -1,5 +1,5 @@
 import connect from "./connect.js";
-import Movie from "./MoviesSchema.js";
+import Movie from "./moviesSchema.js";
 
 export const handler = async (event) => {
   if (event.httpMethod !== "POST") {
