@@ -40,8 +40,8 @@ https://netlify.com
 ```
 
 **Step 2: Login**
-- Email: `inayatalibarkaat@gmail.com`
-- Password: `Shruti@123`
+- Email: `************`
+- Password: `********`
 
 **Step 3: Create New Site**
 - Click "Add new site" → "Import an existing project"
