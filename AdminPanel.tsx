@@ -596,10 +596,6 @@ const rating = detail.vote_average ? detail.vote_average.toFixed(1) : "";
         runtime: Number((detail as any).runtime || 0),
         trailerLink: ytEmbed(trailerKey),
         genres: (detail.genres || []).map((g: any) => ({ id: g.id, name: g.name })),
-        actor,
-        director,
-        producer,
-        rating,
       }));
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
