@@ -572,6 +572,10 @@ setTmdbResults(filtered as TmdbSearchResult[]);
       const detailUrl = `${TMDB_BASE_URL}/${isMovie ? "movie" : "tv"}/${item.id}?api_key=${TMDB_API_KEY}&append_to_response=videos,credits`;
       const res = await fetch(detailUrl);
       const detail: TmdbDetailResponse = await res.json();
+      const actors = detail.credits?.cast?.slice(0, 3).map((p) => p.name).join(", ") || "";
+const director = detail.credits?.crew?.find((p) => p.job === "Director")?.name || "";
+const producer = detail.credits?.crew?.find((p) => p.job === "Producer")?.name || "";
+const rating = detail.vote_average ? detail.vote_average.toFixed(1) : "";
       const poster = detail.poster_path
         ? `${TMDB_IMAGE_BASE_URL}w500${detail.poster_path}`
         : "";
@@ -592,6 +596,10 @@ setTmdbResults(filtered as TmdbSearchResult[]);
         runtime: Number((detail as any).runtime || 0),
         trailerLink: ytEmbed(trailerKey),
         genres: (detail.genres || []).map((g: any) => ({ id: g.id, name: g.name })),
+        actor,
+        director,
+        producer,
+        rating,
       }));
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
