@@ -592,13 +592,10 @@ setTmdbResults(filtered as TmdbSearchResult[]);
         runtime: Number((detail as any).runtime || 0),
         trailerLink: ytEmbed(trailerKey),
         genres: (detail.genres || []).map((g: any) => ({ id: g.id, name: g.name })),
-        actors: (detail.credits?.cast || [])
-  .slice(0, 5)
-  .map((p: any) => p.name)
-  .join(", "),
-director: (detail.credits?.crew || []).find((p: any) => p.job === "Director")?.name || "",
-producer: (detail.credits?.crew || []).find((p: any) => p.job === "Producer")?.name || "",
-rating: detail.vote_average || 0,
+        actors: (detail.credits?.cast || []).slice(0, 5).map((p: any) => p.name).join(", "),
+        director: (detail.credits?.crew || []).find((p: any) => p.job === "Director")?.name || "",
+        producer: (detail.credits?.crew || []).find((p: any) => p.job === "Producer")?.name || "",
+        rating: detail.vote_average || 0,
       }));
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
