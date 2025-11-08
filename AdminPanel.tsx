@@ -569,7 +569,7 @@ setTmdbResults(filtered as TmdbSearchResult[]);
   const handleSelectTmdb = async (item: TmdbSearchResult) => {
     try {
       const isMovie = item.media_type === "movie";
-      const detailUrl = `${TMDB_BASE_URL}/${isMovie ? "movie" : "tv"}/${item.id}?api_key=${TMDB_API_KEY}&append_to_response=videos`;
+      const detailUrl = `${TMDB_BASE_URL}/${isMovie ? "movie" : "tv"}/${item.id}?api_key=${TMDB_API_KEY}&append_to_response=videos,credits`;
       const res = await fetch(detailUrl);
       const detail: TmdbDetailResponse = await res.json();
       const poster = detail.poster_path
