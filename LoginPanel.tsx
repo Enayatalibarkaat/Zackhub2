@@ -12,25 +12,43 @@ const LoginPanel: React.FC<LoginPanelProps> = ({ onLoginSuccess, onCancel }) => 
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Check for Super Admin
-    if (username === 'Enayat78' && password === 'Shruti@123') {
-      setError('');
-      onLoginSuccess({ username: 'Enayat78', role: 'super' });
-      return;
-    }
+    try {
+      // First, try super admin login via secure Netlify function
+      const res = await fetch("/.netlify/functions/adminLogin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: username.trim(),
+          password: password.trim(),
+        }),
+      });
 
-    // Check for other admins
-    const admins = getAdmins();
-    const foundAdmin = admins.find(admin => admin.username === username && admin.password === password);
+      const data = await res.json();
 
-    if (foundAdmin) {
-      setError('');
-      onLoginSuccess(foundAdmin);
-    } else {
-      setError('Invalid username or password.');
+      if (res.ok && data?.success) {
+        // ✅ Super admin authenticated
+        onLoginSuccess({ username: username.trim(), role: "super" });
+        return;
+      }
+
+      // ❌ If not super admin, check for other admins from local storage
+      const admins = getAdmins();
+      const foundAdmin = admins.find(
+        (admin) => admin.username === username && admin.password === password
+      );
+
+      if (foundAdmin) {
+        setError('');
+        onLoginSuccess(foundAdmin);
+      } else {
+        setError('Invalid username or password.');
+      }
+    } catch (err) {
+      console.error("Login failed:", err);
+      setError("Login failed. Please try again.");
     }
   };
 
