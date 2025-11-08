@@ -16,11 +16,30 @@ const LoginPanel: React.FC<LoginPanelProps> = ({ onLoginSuccess, onCancel }) => 
     e.preventDefault();
 
     // Check for Super Admin
-    if (username === 'Enayat78' && password === 'Shruti@123') {
-      setError('');
-      onLoginSuccess({ username: 'Enayat78', role: 'super' });
-      return;
-    }
+    // call Netlify function to validate super admin
+try {
+  setError(""); // clear previous error
+  const res = await fetch("/.netlify/functions/adminLogin", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: username.trim(), password: password.trim() })
+  });
+
+  const data = await res.json();
+
+  if (res.ok && data.success) {
+    // success — call existing handler
+    onLoginSuccess({ username: data.user.username, role: data.user.role });
+    return;
+  } else {
+    setError(data.error || "Invalid credentials");
+    return;
+  }
+} catch (err) {
+  console.error("Login request failed", err);
+  setError("Login failed. Try again.");
+  return;
+}
 
     // Check for other admins
     const admins = getAdmins();
