@@ -552,7 +552,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       )}`;
       const res = await fetch(url);
       const data = await res.json();
-      setTmdbResults((data?.results || []) as TmdbSearchResult[]);
+      // ✅ Only show Movies & TV/Webseries results
+const filtered = (data?.results || []).filter(
+  (item: any) => item.media_type === "movie" || item.media_type === "tv"
+);
+
+setTmdbResults(filtered as TmdbSearchResult[]);
     } catch (err: any) {
       setTmdbError("TMDB search failed");
       console.error(err);
