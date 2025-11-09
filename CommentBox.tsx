@@ -178,13 +178,13 @@ const CommentBox: React.FC<CommentBoxProps> = ({ movieId, movieTitle }) => {
     fetchComments();
   }, [fetchComments]);
 
+  // --- Fixed Function ---
   const addComment = useCallback(async (text: string, name?: string, parentId: string | null = null) => {
     setIsSubmitting(true);
 
     let currentName = username;
 
     if (!currentName && name) {
-      // Register username if not saved
       const regRes = await fetch('/.netlify/functions/registerUser', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -206,16 +206,18 @@ const CommentBox: React.FC<CommentBoxProps> = ({ movieId, movieTitle }) => {
       return;
     }
 
+    // ✅ FIXED PAYLOAD (matches backend)
     const res = await fetch('/.netlify/functions/addComment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         username: currentName,
-        movieId,
-        text,
-        parentId,
+        movieId: movieId,
+        text: text.trim(),
+        parentId: parentId,
       }),
     });
+
     const data = await res.json();
 
     if (data.success) {
