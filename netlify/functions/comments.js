@@ -21,15 +21,15 @@ export const handler = async (event) => {
   }
 
   try {
-    // 1️⃣ Get master bin data
-    const masterRes = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_MASTER}`, {
+    // 1️⃣ Get master bin data safely
+    const masterRes = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_MASTER}/latest`, {
       headers: {
         "X-Master-Key": JSONBIN_API_KEY,
       }
     });
 
     const masterData = await masterRes.json();
-    let movies = masterData.record.movies || [];
+    const movies = masterData.record?.movies || []; // ✅ FIX: Safe access
 
     // 2️⃣ Check if movie already has a bin
     let movieEntry = movies.find(m => m.id === movieId);
@@ -41,10 +41,11 @@ export const handler = async (event) => {
           "X-Master-Key": JSONBIN_API_KEY,
         }
       });
+
       const movieData = await movieRes.json();
       return {
         statusCode: 200,
-        body: JSON.stringify({ comments: movieData.record.comments || [] }),
+        body: JSON.stringify({ comments: movieData.record?.comments || [] }),
       };
     }
 
@@ -63,7 +64,7 @@ export const handler = async (event) => {
 
     // 4️⃣ Update master bin with new movie entry
     const newMovie = { id: movieId, binId: newBinId };
-    movies.push(newMovie);
+    const updatedMovies = [...movies, newMovie];
 
     await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_MASTER}`, {
       method: "PUT",
@@ -71,16 +72,16 @@ export const handler = async (event) => {
         "Content-Type": "application/json",
         "X-Master-Key": JSONBIN_API_KEY,
       },
-      body: JSON.stringify({ movies })
+      body: JSON.stringify({ movies: updatedMovies })
     });
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ comments: [] }), // empty comments for new movie
+      body: JSON.stringify({ comments: [] }),
     };
 
   } catch (err) {
-    console.error(err);
+    console.error("COMMENTS ERROR:", err);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: "Server Error ❌", details: err.message }),
