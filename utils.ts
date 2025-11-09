@@ -8,8 +8,8 @@ export const formatRelativeTime = (isoDateString: string): string => {
   const hours = Math.round(minutes / 60);
   const days = Math.round(hours / 24);
   const weeks = Math.round(days / 7);
-  const months = Math.round(days / 30.44); // Average month length
-  const years = Math.round(days / 365.25); // Account for leap years
+  const months = Math.round(days / 30.44);
+  const years = Math.round(days / 365.25);
 
   if (seconds < 5) {
     return "just now";
@@ -30,51 +30,42 @@ export const formatRelativeTime = (isoDateString: string): string => {
   }
 };
 
-// --- User & Comment Management Utilities ---
+// --- Username: JSONBin-based Registration ---
 
-const USERNAMES_STORAGE_KEY = 'zackhub-usernames';
-const CURRENT_USER_STORAGE_KEY = 'zackhub-username';
+export async function checkAndRegisterUsername(username: string): Promise<string | null> {
+  try {
+    const response = await fetch(`/.netlify/functions/checkUsername`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username }),
+    });
+
+    if (response.status === 409) {
+      return "Username already taken.";
+    }
+
+    if (!response.ok) {
+      return "Something went wrong, please try again.";
+    }
+
+    localStorage.setItem('zackhub-username', username);
+    return null;
+  } catch (err) {
+    console.error("Error registering username:", err);
+    return "Network error, try again later.";
+  }
+}
 
 export const getUsername = (): string | null => {
   try {
-    return localStorage.getItem(CURRENT_USER_STORAGE_KEY);
+    return localStorage.getItem('zackhub-username');
   } catch (e) {
     console.error("Failed to get username from localStorage", e);
     return null;
   }
-}
-
-export const getAllRegisteredUsernames = (): string[] => {
-  try {
-    const storedUsernames = localStorage.getItem(USERNAMES_STORAGE_KEY);
-    return storedUsernames ? JSON.parse(storedUsernames) : [];
-  } catch (e) {
-    console.error("Failed to get registered usernames", e);
-    return [];
-  }
 };
 
-export const isUsernameTaken = (name: string): boolean => {
-  const usernames = getAllRegisteredUsernames();
-  return usernames.some(username => username.toLowerCase() === name.toLowerCase());
-};
-
-export const registerUsername = (name: string): boolean => {
-  try {
-    if (isUsernameTaken(name)) {
-      console.error("Attempted to register a username that is already taken.");
-      return false;
-    }
-    const usernames = getAllRegisteredUsernames();
-    const updatedUsernames = [...usernames, name];
-    localStorage.setItem(USERNAMES_STORAGE_KEY, JSON.stringify(updatedUsernames));
-    localStorage.setItem(CURRENT_USER_STORAGE_KEY, name);
-    return true;
-  } catch (e) {
-    console.error("Failed to register username in localStorage", e);
-    return false;
-  }
-};
+// --- Comments Storage ---
 
 export const getAllCommentsFromStorage = (): Array<Comment & { movieId: string }> => {
   const allComments: Array<Comment & { movieId: string }> = [];
@@ -106,14 +97,7 @@ const profanityList = [...englishProfanity, ...hindiProfanity];
 
 export const containsProfanity = (text: string): boolean => {
   const lowerCaseText = text.toLowerCase();
-  for (const word of profanityList) {
-    // Use word boundaries (\b) to avoid matching parts of words (e.g., 'ass' in 'class')
-    const regex = new RegExp(`\\b${word}\\b`, 'i');
-    if (regex.test(lowerCaseText)) {
-      return true;
-    }
-  }
-  return false;
+  return profanityList.some(word => new RegExp(`\\b${word}\\b`, 'i').test(lowerCaseText));
 };
 
 export const deleteCommentFromStorage = (movieId: string, commentId: string): boolean => {
@@ -125,7 +109,6 @@ export const deleteCommentFromStorage = (movieId: string, commentId: string): bo
     let comments: Comment[] = JSON.parse(storedComments);
     const initialLength = comments.length;
 
-    // Check if the comment to delete actually exists
     if (!comments.some(c => c.id === commentId)) {
         return false;
     }
@@ -136,7 +119,6 @@ export const deleteCommentFromStorage = (movieId: string, commentId: string): bo
       comments
         .filter(comment => comment.parentId === id)
         .forEach(child => {
-            // Check to prevent infinite loops on corrupted data
             if (!idsToDelete.has(child.id)) {
                 findDescendants(child.id);
             }
@@ -146,8 +128,7 @@ export const deleteCommentFromStorage = (movieId: string, commentId: string): bo
     findDescendants(commentId);
 
     const updatedComments = comments.filter(c => !idsToDelete.has(c.id));
-    
-    // Only return true if something was actually deleted.
+
     if (updatedComments.length < initialLength) {
       localStorage.setItem(storageKey, JSON.stringify(updatedComments));
       return true;
@@ -177,7 +158,6 @@ export const getAdmins = (): AdminUser[] => {
     const storedAdmins = localStorage.getItem(ADMINS_STORAGE_KEY);
     if (!storedAdmins) return [];
     
-    // For backward compatibility, add default permissions if they don't exist
     const admins: AdminUser[] = JSON.parse(storedAdmins);
     return admins.map(admin => ({
         ...admin,
@@ -214,7 +194,7 @@ export const removeAdmin = (username: string): boolean => {
     const admins = getAdmins();
     const updatedAdmins = admins.filter(admin => admin.username.toLowerCase() !== username.toLowerCase());
     if (admins.length === updatedAdmins.length) {
-        return false; // User not found
+        return false;
     }
     localStorage.setItem(ADMINS_STORAGE_KEY, JSON.stringify(updatedAdmins));
     return true;
@@ -225,17 +205,17 @@ export const removeAdmin = (username: string): boolean => {
 };
 
 export const updateAdminPermissions = (username: string, permissions: AdminPermissions): boolean => {
-    try {
-        const admins = getAdmins();
-        const adminIndex = admins.findIndex(admin => admin.username.toLowerCase() === username.toLowerCase());
-        if (adminIndex === -1) {
-            return false; // Admin not found
-        }
-        admins[adminIndex].permissions = permissions;
-        localStorage.setItem(ADMINS_STORAGE_KEY, JSON.stringify(admins));
-        return true;
-    } catch (e) {
-        console.error("Failed to update admin permissions", e);
-        return false;
-    }
+  try {
+      const admins = getAdmins();
+      const adminIndex = admins.findIndex(admin => admin.username.toLowerCase() === username.toLowerCase());
+      if (adminIndex === -1) {
+          return false;
+      }
+      admins[adminIndex].permissions = permissions;
+      localStorage.setItem(ADMINS_STORAGE_KEY, JSON.stringify(admins));
+      return true;
+  } catch (e) {
+      console.error("Failed to update admin permissions", e);
+      return false;
+  }
 };
