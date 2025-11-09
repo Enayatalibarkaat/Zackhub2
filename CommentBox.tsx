@@ -180,6 +180,7 @@ const CommentBox: React.FC<CommentBoxProps> = ({ movieId, movieTitle }) => {
 
   // --- Fixed Function ---
   const addComment = useCallback(async (text: string, name?: string, parentId: string | null = null) => {
+    console.log("Frontend movieId check:", movieId);
     setIsSubmitting(true);
 
     let currentName = username;
