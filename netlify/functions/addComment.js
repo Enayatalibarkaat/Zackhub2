@@ -45,6 +45,7 @@ function hasProfanity(text="") {
 
 // --------------- Handler ----------------
 export const handler = async (event) => {
+  console.log("addComment body:", event.body);
   // Only POST
   if (event.httpMethod !== "POST") {
     return {
