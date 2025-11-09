@@ -65,6 +65,9 @@ export const getUsername = (): string | null => {
   }
 };
 
+// Dummy function to avoid UI errors
+export const isUsernameTaken = (_: string): boolean => false;
+
 // --- Comments Storage ---
 
 export const getAllCommentsFromStorage = (): Array<Comment & { movieId: string }> => {
@@ -100,47 +103,6 @@ export const containsProfanity = (text: string): boolean => {
   return profanityList.some(word => new RegExp(`\\b${word}\\b`, 'i').test(lowerCaseText));
 };
 
-export const deleteCommentFromStorage = (movieId: string, commentId: string): boolean => {
-  const storageKey = `zackhub-comments-${movieId}`;
-  try {
-    const storedComments = localStorage.getItem(storageKey);
-    if (!storedComments) return false;
-    
-    let comments: Comment[] = JSON.parse(storedComments);
-    const initialLength = comments.length;
-
-    if (!comments.some(c => c.id === commentId)) {
-        return false;
-    }
-    
-    const idsToDelete = new Set<string>();
-    const findDescendants = (id: string) => {
-      idsToDelete.add(id);
-      comments
-        .filter(comment => comment.parentId === id)
-        .forEach(child => {
-            if (!idsToDelete.has(child.id)) {
-                findDescendants(child.id);
-            }
-        });
-    };
-
-    findDescendants(commentId);
-
-    const updatedComments = comments.filter(c => !idsToDelete.has(c.id));
-
-    if (updatedComments.length < initialLength) {
-      localStorage.setItem(storageKey, JSON.stringify(updatedComments));
-      return true;
-    }
-    return false;
-    
-  } catch (e) {
-    console.error(`Failed to delete comment ${commentId} for movie ${movieId}`, e);
-    return false;
-  }
-};
-
 // --- Admin Management Utilities ---
 
 const ADMINS_STORAGE_KEY = 'zackhub-admins';
@@ -157,7 +119,7 @@ export const getAdmins = (): AdminUser[] => {
   try {
     const storedAdmins = localStorage.getItem(ADMINS_STORAGE_KEY);
     if (!storedAdmins) return [];
-    
+
     const admins: AdminUser[] = JSON.parse(storedAdmins);
     return admins.map(admin => ({
         ...admin,
