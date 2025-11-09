@@ -201,17 +201,18 @@ const CommentBox: React.FC<CommentBoxProps> = ({ movieId, movieTitle }) => {
 
     // Handle first-time user registration
     if (!commenterName && name) {
-        if (registerUsername(name.trim())) {
-            commenterName = name.trim();
-            setUsername(commenterName);
-        } else {
-            // This case should be caught by form validation but is here as a fallback.
-            console.error("Failed to register username.");
-            setIsSubmitting(false);
-            return;
-        }
-    }
+        if (!commenterName && name) {
+  const errorMsg = await checkAndRegisterUsername(name.trim());
 
+  if (errorMsg) {
+    alert(errorMsg);
+    setIsSubmitting(false);
+    return;
+  }
+
+  commenterName = name.trim();
+  setUsername(commenterName);
+        }
     if (!commenterName) {
         console.error("Cannot post comment without a name.");
         setIsSubmitting(false);
