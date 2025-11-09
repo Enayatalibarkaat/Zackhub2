@@ -329,7 +329,7 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
                     <h2 className="text-3xl font-bold text-center text-light-text dark:text-brand-text mb-4">Feedback & Reactions</h2>
                     <p className="text-center text-light-text-secondary dark:text-brand-text-secondary mb-8">How do you feel about this?</p>
                     <ReactionPanel movieId={movie.id} />
-                    <CommentBox movieId={movie.id} movieTitle={movie.title} />
+                    <CommentBox movieId={movie._id} movieTitle={movie.title} />
                 </div>
 
                 </div>
