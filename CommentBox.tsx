@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Comment } from './types';
-import { formatRelativeTime, getUsername, isUsernameTaken, registerUsername, containsProfanity } from './utils';
+import { formatRelativeTime, getUsername, checkAndRegisterUsername, containsProfanity } from './utils';
 
 interface CommentBoxProps {
   movieId: string;
