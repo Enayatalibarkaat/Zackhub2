@@ -2,7 +2,7 @@
 import mongoose from "mongoose";
 
 /** ---------- ENV ---------- **/
-const BASE_URI = process.env.MONGO_URI; // comments ke liye naya URI (movies se alag)
+const BASE_URI = process.env.COMMENTS_MONGODB_URI; // comments ke liye naya URI (movies se alag)
 const DB_NAME  = process.env.DB_NAME || "Zackhubme";
 
 /** ---------- Safe Mongo URI with DB ---------- **/
