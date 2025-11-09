@@ -177,6 +177,25 @@ const CommentBox: React.FC<CommentBoxProps> = ({ movieId, movieTitle }) => {
       console.error("Failed to load comments from localStorage", e);
     }
   }, [storageKey]);
+  // Auto delete comments older than 60 days
+useEffect(() => {
+  const storedComments = localStorage.getItem(storageKey);
+  if (!storedComments) return;
+
+  const comments: Comment[] = JSON.parse(storedComments);
+  const now = Date.now();
+  const sixtyDays = 60 * 24 * 60 * 60 * 1000;
+
+  const filtered = comments.filter(c => {
+    const age = now - new Date(c.timestamp).getTime();
+    return age < sixtyDays; // keep only < 60 days old
+  });
+
+  if (filtered.length !== comments.length) {
+    localStorage.setItem(storageKey, JSON.stringify(filtered));
+    setComments(filtered);
+  }
+}, [storageKey]);
 
   const sendTelegramNotification = async (commentData: { commenterName: string; commentText: string; movieTitle: string }) => {
     if (!NOTIFICATION_WEBHOOK_URL) {
