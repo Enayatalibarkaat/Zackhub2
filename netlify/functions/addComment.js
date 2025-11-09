@@ -57,6 +57,7 @@ export const handler = async (event) => {
 
   try {
     const { username, movieId, text, parentId = null } = JSON.parse(event.body || "{}");
+    console.log("addComment DEBUG body:", username, movieId, text);
 
     // Basic validations
     if (!username || !movieId || !text) {
