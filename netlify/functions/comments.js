@@ -21,35 +21,32 @@ export const handler = async (event) => {
   }
 
   try {
-    // 1️⃣ Get master bin data safely
-    const masterRes = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_MASTER}/latest`, {
-      headers: {
-        "X-Master-Key": JSONBIN_API_KEY,
-      }
+    // 1️⃣ Fetch master bin safely
+    const masterRes = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_MASTER}`, {
+      headers: { "X-Master-Key": JSONBIN_API_KEY }
     });
 
-    const masterData = await masterRes.json();
-    const movies = masterData.record?.movies || []; // ✅ FIX: Safe access
+    const masterJson = await masterRes.json();
+    const movies = Array.isArray(masterJson?.record?.movies)
+      ? masterJson.record.movies
+      : [];
 
-    // 2️⃣ Check if movie already has a bin
-    let movieEntry = movies.find(m => m.id === movieId);
+    // 2️⃣ Try to find existing movie bin
+    const movieEntry = movies.find(m => m?.id === movieId);
 
-    if (movieEntry) {
-      // ✅ Movie bin exists → return comments
+    if (movieEntry?.binId) {
       const movieRes = await fetch(`https://api.jsonbin.io/v3/b/${movieEntry.binId}/latest`, {
-        headers: {
-          "X-Master-Key": JSONBIN_API_KEY,
-        }
+        headers: { "X-Master-Key": JSONBIN_API_KEY }
       });
 
       const movieData = await movieRes.json();
       return {
         statusCode: 200,
-        body: JSON.stringify({ comments: movieData.record?.comments || [] }),
+        body: JSON.stringify({ comments: movieData?.record?.comments || [] }),
       };
     }
 
-    // 3️⃣ Movie doesn't exist → Create new bin
+    // 3️⃣ No bin found → create new one
     const newBinRes = await fetch(`https://api.jsonbin.io/v3/b`, {
       method: "POST",
       headers: {
@@ -60,11 +57,17 @@ export const handler = async (event) => {
     });
 
     const newBinData = await newBinRes.json();
-    const newBinId = newBinData.metadata.id;
+    const newBinId = newBinData?.metadata?.id;
 
-    // 4️⃣ Update master bin with new movie entry
-    const newMovie = { id: movieId, binId: newBinId };
-    const updatedMovies = [...movies, newMovie];
+    if (!newBinId) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "Failed to create movie bin ❌" }),
+      };
+    }
+
+    // 4️⃣ Update master bin
+    const updatedMovies = [...movies, { id: movieId, binId: newBinId }];
 
     await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_MASTER}`, {
       method: "PUT",
@@ -81,7 +84,7 @@ export const handler = async (event) => {
     };
 
   } catch (err) {
-    console.error("COMMENTS ERROR:", err);
+    console.error("🔥 Server Crash:", err);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: "Server Error ❌", details: err.message }),
