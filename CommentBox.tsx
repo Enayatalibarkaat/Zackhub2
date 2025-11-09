@@ -1,14 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Comment } from './types';
-import { formatRelativeTime, getUsername, checkAndRegisterUsername, containsProfanity } from './utils';
+import { formatRelativeTime, containsProfanity } from './utils';
 
 interface CommentBoxProps {
   movieId: string;
   movieTitle: string;
 }
-
-// IMPORTANT: Replace this with your actual Webhook URL from a service like Make.com or Zapier.
-const NOTIFICATION_WEBHOOK_URL = 'https://hook.eu2.make.com/2kd4wt2zdo5d2f336b9tg9s91ckvamh4';
 
 // --- Reusable Comment Form Component ---
 const CommentForm: React.FC<{
@@ -25,25 +22,22 @@ const CommentForm: React.FC<{
     e.preventDefault();
 
     if (showNameInput && !name.trim()) {
-      setError('Name cannot be empty.');
+      setError('Username required ❌');
       return;
     }
     if (!commentText.trim()) {
-      setError('Comment cannot be empty.');
-      return;
-    }
-    if (showNameInput && name.trim().length > 30) {
-      setError('Name cannot be longer than 30 characters.');
-      return;
-    }
-    if (commentText.trim().length > 500) {
-      setError('Comment cannot be longer than 500 characters.');
+      setError('Comment cannot be empty ❌');
       return;
     }
 
-    // Profanity check
+    const usernameRegex = /^[a-z0-9_]{5,}$/;
+    if (showNameInput && !usernameRegex.test(name.trim())) {
+      setError('Use a-z, 0-9, underscore, min 5 chars ❌');
+      return;
+    }
+
     if (containsProfanity(commentText) || (showNameInput && containsProfanity(name))) {
-      setError('Your comment contains inappropriate language. Please edit and try again.');
+      setError('Inappropriate words not allowed ❌');
       return;
     }
 
@@ -60,7 +54,7 @@ const CommentForm: React.FC<{
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Choose Your Permanent Name"
+            placeholder="Enter Username"
             maxLength={30}
             className="w-full p-3 bg-light-bg dark:bg-brand-bg rounded border border-gray-300 dark:border-gray-600"
             disabled={isSubmitting}
@@ -71,7 +65,7 @@ const CommentForm: React.FC<{
         <textarea
           value={commentText}
           onChange={(e) => setCommentText(e.target.value)}
-          placeholder="Write your feedback here..."
+          placeholder="Write your comment..."
           maxLength={500}
           rows={4}
           className="w-full p-3 bg-light-bg dark:bg-brand-bg rounded border border-gray-300 dark:border-gray-600"
@@ -109,14 +103,14 @@ const CommentItem: React.FC<{
   return (
     <div className="flex gap-4">
       <div className="w-10 h-10 rounded-full bg-brand-primary/20 flex items-center justify-center text-brand-primary font-bold">
-        {comment.name.charAt(0).toUpperCase()}
+        {comment.username.charAt(0).toUpperCase()}
       </div>
 
       <div className="flex-grow">
         <div className="bg-light-bg dark:bg-brand-bg p-4 rounded-lg">
           <div className="flex justify-between items-center">
-            <p className="font-bold">{comment.name}</p>
-            <p className="text-xs">{formatRelativeTime(comment.timestamp)}</p>
+            <p className="font-bold">{comment.username}</p>
+            <p className="text-xs">{formatRelativeTime(comment.createdAt)}</p>
           </div>
           <p className="mt-2 break-words">{comment.text}</p>
 
@@ -163,84 +157,75 @@ const CommentBox: React.FC<CommentBoxProps> = ({ movieId, movieTitle }) => {
   const [username, setUsername] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const storageKey = `zackhub-comments-${movieId}`;
-
+  // Load username from localStorage
   useEffect(() => {
-    setUsername(getUsername());
-    const storedComments = localStorage.getItem(storageKey);
-    if (storedComments) setComments(JSON.parse(storedComments));
-  }, [storageKey]);
+    const saved = localStorage.getItem('username');
+    if (saved) setUsername(saved);
+  }, []);
 
-  // Auto delete 60-days-old comments
-  useEffect(() => {
-    const stored = localStorage.getItem(storageKey);
-    if (!stored) return;
-
-    const now = Date.now();
-    const sixtyDays = 60 * 24 * 60 * 60 * 1000;
-
-    const parsed: Comment[] = JSON.parse(stored);
-    const filtered = parsed.filter(c => now - new Date(c.timestamp).getTime() < sixtyDays);
-
-    if (filtered.length !== parsed.length) {
-      localStorage.setItem(storageKey, JSON.stringify(filtered));
-      setComments(filtered);
-    }
-  }, [storageKey]);
-
-  const sendTelegramNotification = async (commentData: { commenterName: string; commentText: string; movieTitle: string }) => {
+  // Fetch comments from backend
+  const fetchComments = useCallback(async () => {
     try {
-      await fetch(NOTIFICATION_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(commentData),
-      });
-    } catch (error) {
-      console.error("Telegram webhook failed:", error);
+      const res = await fetch(`/.netlify/functions/getComments?movieId=${movieId}`);
+      const data = await res.json();
+      if (data.success) setComments(data.comments);
+    } catch (err) {
+      console.error('Error loading comments:', err);
     }
-  };
+  }, [movieId]);
 
-  const addComment = useCallback(async (text: string, parentId: string | null = null, name?: string) => {
+  useEffect(() => {
+    fetchComments();
+  }, [fetchComments]);
+
+  const addComment = useCallback(async (text: string, name?: string, parentId: string | null = null) => {
     setIsSubmitting(true);
 
-    let commenterName = username;
+    let currentName = username;
 
-    if (!commenterName && name) {
-      const errorMsg = await checkAndRegisterUsername(name.trim());
-      if (errorMsg) {
-        alert(errorMsg);
+    if (!currentName && name) {
+      // Register username if not saved
+      const regRes = await fetch('/.netlify/functions/registerUser', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: name.trim() }),
+      });
+      const regData = await regRes.json();
+      if (!regData.success && !regData.message.includes('exists')) {
+        alert(regData.message);
         setIsSubmitting(false);
         return;
       }
-      commenterName = name.trim();
-      setUsername(commenterName);
+      currentName = name.trim();
+      localStorage.setItem('username', currentName);
+      setUsername(currentName);
     }
 
-    if (!commenterName) {
+    if (!currentName) {
       setIsSubmitting(false);
       return;
     }
 
-    const newComment: Comment = {
-      id: new Date().toISOString(),
-      name: commenterName,
-      text: text.trim(),
-      timestamp: new Date().toISOString(),
-      parentId: parentId,
-    };
-
-    const updatedComments = [...comments, newComment];
-    setComments(updatedComments);
-    localStorage.setItem(storageKey, JSON.stringify(updatedComments));
-
-    await sendTelegramNotification({
-      movieTitle,
-      commenterName: newComment.name,
-      commentText: newComment.text
+    const res = await fetch('/.netlify/functions/addComment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: currentName,
+        movieId,
+        text,
+        parentId,
+      }),
     });
+    const data = await res.json();
+
+    if (data.success) {
+      await fetchComments(); // refresh comments
+    } else {
+      alert(data.message);
+    }
 
     setIsSubmitting(false);
-  }, [username, comments, storageKey, movieTitle]);
+  }, [username, movieId, fetchComments]);
 
   const commentTree = useMemo(() => {
     const map = new Map<string, Comment & { replies: Comment[] }>();
@@ -252,7 +237,7 @@ const CommentBox: React.FC<CommentBoxProps> = ({ movieId, movieTitle }) => {
       else roots.push(c);
     });
 
-    roots.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    roots.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     return roots;
   }, [comments]);
 
@@ -261,7 +246,7 @@ const CommentBox: React.FC<CommentBoxProps> = ({ movieId, movieTitle }) => {
       <h3 className="text-xl font-bold mb-4">Join the Discussion</h3>
 
       <CommentForm
-        onSubmit={(text, name) => addComment(text, null, name)}
+        onSubmit={(text, name) => addComment(text, name)}
         isSubmitting={isSubmitting}
         showNameInput={!username}
         ctaText="Post Comment"
@@ -275,7 +260,7 @@ const CommentBox: React.FC<CommentBoxProps> = ({ movieId, movieTitle }) => {
                 key={c.id}
                 comment={c}
                 replies={c.replies}
-                onReply={(id, text) => addComment(text, id)}
+                onReply={(id, text) => addComment(text, undefined, id)}
                 isSubmitting={isSubmitting}
               />
             ))}
