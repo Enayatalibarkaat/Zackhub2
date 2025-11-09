@@ -181,3 +181,43 @@ export const updateAdminPermissions = (username: string, permissions: AdminPermi
       return false;
   }
 };
+export const deleteCommentFromStorage = (movieId: string, commentId: string): boolean => {
+  const storageKey = `zackhub-comments-${movieId}`;
+  try {
+    const storedComments = localStorage.getItem(storageKey);
+    if (!storedComments) return false;
+    
+    let comments: Comment[] = JSON.parse(storedComments);
+    const initialLength = comments.length;
+
+    if (!comments.some(c => c.id === commentId)) {
+        return false;
+    }
+    
+    const idsToDelete = new Set<string>();
+    const findDescendants = (id: string) => {
+      idsToDelete.add(id);
+      comments
+        .filter(comment => comment.parentId === id)
+        .forEach(child => {
+            if (!idsToDelete.has(child.id)) {
+                findDescendants(child.id);
+            }
+        });
+    };
+
+    findDescendants(commentId);
+
+    const updatedComments = comments.filter(c => !idsToDelete.has(c.id));
+
+    if (updatedComments.length < initialLength) {
+      localStorage.setItem(storageKey, JSON.stringify(updatedComments));
+      return true;
+    }
+    return false;
+    
+  } catch (e) {
+    console.error(`Failed to delete comment ${commentId} for movie ${movieId}`, e);
+    return false;
+  }
+};
