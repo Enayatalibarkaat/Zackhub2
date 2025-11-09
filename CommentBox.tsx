@@ -23,6 +23,7 @@ const CommentForm: React.FC<{
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (showNameInput && !name.trim()) {
       setError('Name cannot be empty.');
       return;
@@ -42,49 +43,46 @@ const CommentForm: React.FC<{
 
     // Profanity check
     if (containsProfanity(commentText) || (showNameInput && containsProfanity(name))) {
-        setError('Your comment contains inappropriate language and could not be posted. Please review and resubmit.');
-        return;
-    }
-
-    // Additional check for username availability before submitting
-    if (showNameInput && isUsernameTaken(name.trim())) {
-        setError(`Username "${name.trim()}" is already taken. Please choose another.`);
-        return;
+      setError('Your comment contains inappropriate language. Please edit and try again.');
+      return;
     }
 
     setError(null);
     await onSubmit(commentText, name);
     setCommentText('');
-    // Don't clear name, as it might be part of the main form
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {showNameInput && (
         <div>
-          <label htmlFor="name" className="sr-only">Your Name</label>
           <input
-            id="name"
-            type="text" value={name} onChange={(e) => setName(e.target.value)}
-            placeholder="Choose Your Permanent Name" maxLength={30}
-            className="w-full p-3 bg-light-bg dark:bg-brand-bg rounded border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-primary transition-colors text-light-text dark:text-brand-text"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Choose Your Permanent Name"
+            maxLength={30}
+            className="w-full p-3 bg-light-bg dark:bg-brand-bg rounded border border-gray-300 dark:border-gray-600"
             disabled={isSubmitting}
           />
         </div>
       )}
       <div>
-        <label htmlFor="comment" className="sr-only">Your Comment</label>
         <textarea
-          id="comment" value={commentText} onChange={(e) => setCommentText(e.target.value)}
-          placeholder="Write your feedback here..." maxLength={500} rows={4}
-          className="w-full p-3 bg-light-bg dark:bg-brand-bg rounded border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-primary transition-colors text-light-text dark:text-brand-text"
+          value={commentText}
+          onChange={(e) => setCommentText(e.target.value)}
+          placeholder="Write your feedback here..."
+          maxLength={500}
+          rows={4}
+          className="w-full p-3 bg-light-bg dark:bg-brand-bg rounded border border-gray-300 dark:border-gray-600"
           disabled={isSubmitting}
         />
       </div>
       {error && <p className="text-red-500 text-sm">{error}</p>}
       <div className="text-right">
-        <button type="submit"
-          className="bg-brand-primary hover:bg-opacity-80 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed"
+        <button
+          type="submit"
+          className="bg-brand-primary text-white font-bold py-2 px-6 rounded-lg disabled:bg-gray-400"
           disabled={isSubmitting}
         >
           {isSubmitting ? 'Posting...' : ctaText}
@@ -94,7 +92,6 @@ const CommentForm: React.FC<{
   );
 };
 
-
 // --- Recursive Comment Item Component ---
 const CommentItem: React.FC<{
   comment: Comment;
@@ -102,61 +99,63 @@ const CommentItem: React.FC<{
   onReply: (commentId: string, text: string) => Promise<void>;
   isSubmitting: boolean;
 }> = ({ comment, replies, onReply, isSubmitting }) => {
-    const [isReplying, setIsReplying] = useState(false);
-    
-    const handleReplySubmit = async (text: string) => {
-        await onReply(comment.id, text);
-        setIsReplying(false);
-    }
+  const [isReplying, setIsReplying] = useState(false);
 
-    return (
-        <div className="flex gap-4">
-        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-brand-primary/20 flex items-center justify-center text-brand-primary font-bold">
-            {comment.name.charAt(0).toUpperCase()}
-        </div>
-        <div className="flex-grow">
-            <div className="bg-light-bg dark:bg-brand-bg p-4 rounded-lg">
-                <div className="flex justify-between items-center">
-                    <p className={`font-bold text-light-text dark:text-brand-text ${comment.name === 'Admin' ? 'text-brand-primary [text-shadow:0_0_5px_theme(colors.brand-primary)]' : ''}`}>{comment.name}</p>
-                    <p className="text-xs text-light-text-secondary dark:text-brand-text-secondary">
-                    {formatRelativeTime(comment.timestamp)}
-                    </p>
-                </div>
-                <p className="mt-2 text-light-text-secondary dark:text-brand-text-secondary break-words">{comment.text}</p>
-                 <button onClick={() => setIsReplying(!isReplying)} className="text-xs font-bold text-brand-primary hover:underline mt-2 [text-shadow:0_0_5px_theme(colors.brand-primary/70)]">
-                    {isReplying ? 'Cancel' : 'Reply'}
-                </button>
-            </div>
-            
-            {isReplying && (
-                <div className="mt-4">
-                    <CommentForm
-                        onSubmit={(text) => handleReplySubmit(text)}
-                        isSubmitting={isSubmitting}
-                        showNameInput={false}
-                        ctaText="Post Reply"
-                    />
-                </div>
-            )}
+  const handleReplySubmit = async (text: string) => {
+    await onReply(comment.id, text);
+    setIsReplying(false);
+  };
 
-            {replies.length > 0 && (
-                <div className="mt-4 pl-6 border-l-2 border-gray-200 dark:border-gray-700 space-y-4">
-                    {replies.map(reply => (
-                        <CommentItem
-                            key={reply.id}
-                            comment={reply}
-                            replies={[]} // Replies are passed flat, so we don't nest them further here
-                            onReply={onReply}
-                            isSubmitting={isSubmitting}
-                        />
-                    ))}
-                </div>
-            )}
+  return (
+    <div className="flex gap-4">
+      <div className="w-10 h-10 rounded-full bg-brand-primary/20 flex items-center justify-center text-brand-primary font-bold">
+        {comment.name.charAt(0).toUpperCase()}
+      </div>
+
+      <div className="flex-grow">
+        <div className="bg-light-bg dark:bg-brand-bg p-4 rounded-lg">
+          <div className="flex justify-between items-center">
+            <p className="font-bold">{comment.name}</p>
+            <p className="text-xs">{formatRelativeTime(comment.timestamp)}</p>
+          </div>
+          <p className="mt-2 break-words">{comment.text}</p>
+
+          <button
+            onClick={() => setIsReplying(!isReplying)}
+            className="text-xs font-bold text-brand-primary mt-2"
+          >
+            {isReplying ? 'Cancel' : 'Reply'}
+          </button>
         </div>
-        </div>
-    );
+
+        {isReplying && (
+          <div className="mt-4">
+            <CommentForm
+              onSubmit={(text) => handleReplySubmit(text)}
+              isSubmitting={isSubmitting}
+              showNameInput={false}
+              ctaText="Post Reply"
+            />
+          </div>
+        )}
+
+        {replies.length > 0 && (
+          <div className="mt-4 pl-6 border-l-2 border-gray-300 dark:border-gray-700 space-y-4">
+            {replies.map(reply => (
+              <CommentItem
+                key={reply.id}
+                comment={reply}
+                replies={[]}
+                onReply={onReply}
+                isSubmitting={isSubmitting}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
-
 
 // --- Main CommentBox Component ---
 const CommentBox: React.FC<CommentBoxProps> = ({ movieId, movieTitle }) => {
@@ -168,40 +167,28 @@ const CommentBox: React.FC<CommentBoxProps> = ({ movieId, movieTitle }) => {
 
   useEffect(() => {
     setUsername(getUsername());
-    try {
-      const storedComments = localStorage.getItem(storageKey);
-      if (storedComments) {
-        setComments(JSON.parse(storedComments));
-      }
-    } catch (e) {
-      console.error("Failed to load comments from localStorage", e);
+    const storedComments = localStorage.getItem(storageKey);
+    if (storedComments) setComments(JSON.parse(storedComments));
+  }, [storageKey]);
+
+  // Auto delete 60-days-old comments
+  useEffect(() => {
+    const stored = localStorage.getItem(storageKey);
+    if (!stored) return;
+
+    const now = Date.now();
+    const sixtyDays = 60 * 24 * 60 * 60 * 1000;
+
+    const parsed: Comment[] = JSON.parse(stored);
+    const filtered = parsed.filter(c => now - new Date(c.timestamp).getTime() < sixtyDays);
+
+    if (filtered.length !== parsed.length) {
+      localStorage.setItem(storageKey, JSON.stringify(filtered));
+      setComments(filtered);
     }
   }, [storageKey]);
-  // Auto delete comments older than 60 days
-useEffect(() => {
-  const storedComments = localStorage.getItem(storageKey);
-  if (!storedComments) return;
-
-  const comments: Comment[] = JSON.parse(storedComments);
-  const now = Date.now();
-  const sixtyDays = 60 * 24 * 60 * 60 * 1000;
-
-  const filtered = comments.filter(c => {
-    const age = now - new Date(c.timestamp).getTime();
-    return age < sixtyDays; // keep only < 60 days old
-  });
-
-  if (filtered.length !== comments.length) {
-    localStorage.setItem(storageKey, JSON.stringify(filtered));
-    setComments(filtered);
-  }
-}, [storageKey]);
 
   const sendTelegramNotification = async (commentData: { commenterName: string; commentText: string; movieTitle: string }) => {
-    if (!NOTIFICATION_WEBHOOK_URL) {
-      console.log("Webhook URL not configured. Skipping notification.");
-      return;
-    }
     try {
       await fetch(NOTIFICATION_WEBHOOK_URL, {
         method: 'POST',
@@ -209,33 +196,29 @@ useEffect(() => {
         body: JSON.stringify(commentData),
       });
     } catch (error) {
-      console.error("Failed to send Telegram notification:", error);
+      console.error("Telegram webhook failed:", error);
     }
   };
 
   const addComment = useCallback(async (text: string, parentId: string | null = null, name?: string) => {
     setIsSubmitting(true);
-    
+
     let commenterName = username;
 
-    // Handle first-time user registration
     if (!commenterName && name) {
-        if (!commenterName && name) {
-  const errorMsg = await checkAndRegisterUsername(name.trim());
-
-  if (errorMsg) {
-    alert(errorMsg);
-    setIsSubmitting(false);
-    return;
-  }
-
-  commenterName = name.trim();
-  setUsername(commenterName);
-        }
-    if (!commenterName) {
-        console.error("Cannot post comment without a name.");
+      const errorMsg = await checkAndRegisterUsername(name.trim());
+      if (errorMsg) {
+        alert(errorMsg);
         setIsSubmitting(false);
         return;
+      }
+      commenterName = name.trim();
+      setUsername(commenterName);
+    }
+
+    if (!commenterName) {
+      setIsSubmitting(false);
+      return;
     }
 
     const newComment: Comment = {
@@ -248,63 +231,35 @@ useEffect(() => {
 
     const updatedComments = [...comments, newComment];
     setComments(updatedComments);
-    
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(updatedComments));
-    } catch (e) {
-      console.error("Failed to save comments to localStorage", e);
-    }
-    
+    localStorage.setItem(storageKey, JSON.stringify(updatedComments));
+
     await sendTelegramNotification({
-        movieTitle: movieTitle,
-        commenterName: newComment.name,
-        commentText: newComment.text
+      movieTitle,
+      commenterName: newComment.name,
+      commentText: newComment.text
     });
 
     setIsSubmitting(false);
   }, [username, comments, storageKey, movieTitle]);
 
   const commentTree = useMemo(() => {
-    const commentsById: Map<string, Comment & { replies: Comment[] }> = new Map(
-        comments.map(c => [c.id, { ...c, replies: [] }])
-    );
-    const rootComments: (Comment & { replies: Comment[] })[] = [];
+    const map = new Map<string, Comment & { replies: Comment[] }>();
+    comments.forEach(c => map.set(c.id, { ...c, replies: [] }));
 
-    for (const comment of commentsById.values()) {
-        if (comment.parentId && commentsById.has(comment.parentId)) {
-            commentsById.get(comment.parentId)!.replies.push(comment);
-        } else {
-            rootComments.push(comment);
-        }
-    }
-    // Sort root comments by timestamp
-    rootComments.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    // Sort replies by timestamp
-    commentsById.forEach(c => c.replies.sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()));
+    const roots: (Comment & { replies: Comment[] })[] = [];
+    map.forEach(c => {
+      if (c.parentId && map.has(c.parentId)) map.get(c.parentId)!.replies.push(c);
+      else roots.push(c);
+    });
 
-    return rootComments;
+    roots.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return roots;
   }, [comments]);
-  
-  const flattenedCommentTree = useMemo(() => {
-      const flatList: {comment: Comment, replies: Comment[]}[] = [];
-      const addReplies = (commentId: string) => {
-          return comments.filter(c => c.parentId === commentId)
-                .sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-      }
-      
-      const roots = comments.filter(c => c.parentId === null)
-        .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-      roots.forEach(root => {
-        flatList.push({comment: root, replies: addReplies(root.id)})
-      });
-      return flatList;
-  }, [comments]);
-
 
   return (
     <div className="bg-light-card dark:bg-brand-card rounded-lg shadow-md p-6 mt-8">
-      <h3 className="text-xl font-bold text-light-text dark:text-brand-text mb-4">Join the Discussion</h3>
+      <h3 className="text-xl font-bold mb-4">Join the Discussion</h3>
+
       <CommentForm
         onSubmit={(text, name) => addComment(text, null, name)}
         isSubmitting={isSubmitting}
@@ -315,20 +270,18 @@ useEffect(() => {
       <div className="mt-8">
         {comments.length > 0 ? (
           <div className="space-y-6">
-            {commentTree.map((rootComment) => (
+            {commentTree.map(c => (
               <CommentItem
-                key={rootComment.id}
-                comment={rootComment}
-                replies={rootComment.replies}
-                onReply={(commentId, text) => addComment(text, commentId)}
+                key={c.id}
+                comment={c}
+                replies={c.replies}
+                onReply={(id, text) => addComment(text, id)}
                 isSubmitting={isSubmitting}
               />
             ))}
           </div>
         ) : (
-          <p className="text-center text-light-text-secondary dark:text-brand-text-secondary py-4">
-            No comments yet. Be the first to share your thoughts!
-          </p>
+          <p className="text-center py-4">No comments yet. Be the first!</p>
         )}
       </div>
     </div>
