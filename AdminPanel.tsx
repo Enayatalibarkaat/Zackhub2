@@ -267,13 +267,25 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 
   /** ---------------- Comments (local) ---------------- */
   const movieMap = useMemo(() => new Map(movies.map((m) => [m.id, m.title])), [movies]);
-  const loadAllComments = () => {
-    const comments = getAllCommentsFromStorage().map((c) => ({
-      ...c,
-      movieTitle: movieMap.get(c.movieId) || "Unknown Movie",
-    }));
-    setAllComments(comments);
-  };
+  const loadAllComments = async () => {
+  try {
+    const res = await fetch('/.netlify/functions/getComments');
+    const data = await res.json();
+
+    if (data.success && data.comments) {
+      // Match movie titles with IDs
+      const commentsWithTitles = data.comments.map((c) => ({
+        ...c,
+        movieTitle: movieMap.get(c.movieId) || "Unknown Movie",
+      }));
+      setAllComments(commentsWithTitles);
+    } else {
+      console.error('Error loading comments:', data.message);
+    }
+  } catch (err) {
+    console.error('Failed to fetch comments:', err);
+  }
+};
   useEffect(() => {
     loadAllComments();
   }, [movies, movieMap]);
