@@ -28,14 +28,18 @@ export const handler = async (event) => {
 
   try {
     const movieId = event.queryStringParameters?.movieId;
+    const db = await getDb();
+    const commentsCollection = db.collection(COMMENTS_COL); // ✅ FIXED LINE
+
     // ✅ If admin requests all comments, return everything
-if (movieId === 'all') {
-  const comments = await commentsCollection.find({}).sort({ createdAt: -1 }).toArray();
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ success: true, comments }),
-  };
-}
+    if (movieId === 'all') {
+      const comments = await commentsCollection.find({}).sort({ createdAt: -1 }).toArray();
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ success: true, comments }),
+      };
+    }
+
     if (!movieId) {
       return {
         statusCode: 400,
@@ -44,9 +48,7 @@ if (movieId === 'all') {
       };
     }
 
-    const db = await getDb();
-
-    const comments = await db.collection(COMMENTS_COL)
+    const comments = await commentsCollection
       .find({ movieId: String(movieId) })
       .sort({ createdAt: -1 })
       .toArray();
