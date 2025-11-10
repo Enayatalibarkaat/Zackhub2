@@ -301,7 +301,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       (c) => c.name.toLowerCase() === commentSearch.trim().toLowerCase()
     );
     setFilteredComments(results);
-  };
 
   const handleAdminReplySubmit = async (e: React.FormEvent) => {
   e.preventDefault();
