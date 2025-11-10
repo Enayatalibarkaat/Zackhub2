@@ -303,7 +303,40 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     setFilteredComments(results);
   };
 
-  const handleAdminReplySubmit = (e: React.FormEvent) => {
+  const handleAdminReplySubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  // Agar reply box khali ho ya reply target hi na ho to return
+  if (!adminReplyText.trim() || !adminReplyingTo) return;
+
+  try {
+    // ✅ Admin ka reply backend par bhejna (MongoDB me ZackAdmin naam se)
+    const res = await fetch("/.netlify/functions/addComment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "ZackAdmin", // fixed admin name
+        movieId: adminReplyingTo.movieId, // jaha reply bhejna hai
+        text: adminReplyText.trim(),
+        parentId: adminReplyingTo.id || adminReplyingTo._id, // kis comment ke niche reply
+      }),
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      alert("Reply sent ✅");
+      setAdminReplyText(""); // text box clear
+      setAdminReplyingTo(null); // reply box close
+      loadAllComments(); // comments refresh
+    } else {
+      alert(data.message || "Failed to send reply ❌");
+    }
+  } catch (err) {
+    console.error("Failed to send admin reply:", err);
+    alert("Server error ❌");
+  }
+};
     e.preventDefault();
     if (!adminReplyText.trim() || !adminReplyingTo) return;
     const newReply: CommentType = {
