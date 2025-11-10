@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Comment } from './types';
 import { formatRelativeTime, containsProfanity } from './utils';
 
@@ -20,7 +20,7 @@ const CommentForm: React.FC<{
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    e.stopPropagation(); // 🚫 Prevent parent form from triggering
+    e.stopPropagation(); // prevent bubbling to parent
 
     if (showNameInput && !name.trim()) {
       setError('Username required ❌');
@@ -48,7 +48,7 @@ const CommentForm: React.FC<{
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4" onClick={(e) => e.stopPropagation()}>
       {showNameInput && (
         <div>
           <input
@@ -87,38 +87,42 @@ const CommentForm: React.FC<{
   );
 };
 
-// --- Single Comment Item ---
+// --- Single Comment Item (recursive) ---
 const CommentItem: React.FC<{
-  comment: Comment;
+  comment: Comment & { id?: string; replies?: Comment[] };
   onReply: (commentId: string, text: string) => Promise<void>;
   isSubmitting: boolean;
 }> = ({ comment, onReply, isSubmitting }) => {
   const [isReplying, setIsReplying] = useState(false);
 
   const handleReplySubmit = async (text: string) => {
-    await onReply(comment.id, text);
+    // comment.id should be present by normalization
+    const id = comment.id || (comment as any)._id;
+    await onReply(id, text);
     setIsReplying(false);
   };
 
   return (
-    <div className="flex gap-4">
+    <div className="flex gap-4" onClick={(e) => e.stopPropagation()}>
       <div className="w-10 h-10 rounded-full bg-brand-primary/20 flex items-center justify-center text-brand-primary font-bold">
-        {comment.username?.charAt(0).toUpperCase()}
+        {(comment.username && comment.username.charAt(0).toUpperCase()) || 'U'}
       </div>
 
       <div className="flex-grow">
         <div className="bg-light-bg dark:bg-brand-bg p-4 rounded-lg">
           <div className="flex justify-between items-center">
             <p className="font-bold">{comment.username}</p>
-            <p className="text-xs">{formatRelativeTime(comment.createdAt)}</p>
+            <p className="text-xs">{formatRelativeTime(comment.createdAt || comment.timestamp)}</p>
           </div>
+
           {comment.parentId && (
-            <p className="text-xs text-gray-400">↳ Reply to {comment.parentId}</p>
+            <p className="text-xs text-gray-400">↳ Reply</p>
           )}
+
           <p className="mt-2 break-words">{comment.text}</p>
 
           <button
-            onClick={() => setIsReplying(!isReplying)}
+            onClick={(e) => { e.stopPropagation(); setIsReplying(!isReplying); }}
             className="text-xs font-bold text-brand-primary mt-2"
           >
             {isReplying ? 'Cancel' : 'Reply'}
@@ -133,6 +137,20 @@ const CommentItem: React.FC<{
               showNameInput={false}
               ctaText="Post Reply"
             />
+          </div>
+        )}
+
+        {/* render replies if any */}
+        {comment.replies && comment.replies.length > 0 && (
+          <div className="mt-4 pl-6 border-l-2 border-gray-300 dark:border-gray-700 space-y-4">
+            {comment.replies.map((r) => (
+              <CommentItem
+                key={r.id || (r as any)._id}
+                comment={r as Comment & { id?: string; replies?: Comment[] }}
+                onReply={onReply}
+                isSubmitting={isSubmitting}
+              />
+            ))}
           </div>
         )}
       </div>
@@ -157,14 +175,23 @@ const CommentBox: React.FC<CommentBoxProps> = ({ movieId, movieTitle }) => {
     try {
       const res = await fetch(`/.netlify/functions/getComments?movieId=${movieId}`);
       const data = await res.json();
-      if (data.success) setComments(data.comments);
+      if (data && data.success) {
+        // ensure array
+        setComments(Array.isArray(data.comments) ? data.comments : []);
+      } else {
+        setComments([]);
+      }
     } catch (err) {
       console.error('Error loading comments:', err);
+      setComments([]);
     }
   }, [movieId]);
 
   useEffect(() => {
     fetchComments();
+    // also poll once after 1s (helps immediate UX sometimes)
+    const t = setTimeout(fetchComments, 1000);
+    return () => clearTimeout(t);
   }, [fetchComments]);
 
   // Add or reply to comment
@@ -180,8 +207,8 @@ const CommentBox: React.FC<CommentBoxProps> = ({ movieId, movieTitle }) => {
           body: JSON.stringify({ username: name.trim() }),
         });
         const regData = await regRes.json();
-        if (!regData.success && !regData.message.includes('exists')) {
-          alert(regData.message);
+        if (!regData.success && !regData.message?.includes('exists')) {
+          alert(regData.message || 'Registration failed');
           setIsSubmitting(false);
           return;
         }
@@ -195,30 +222,76 @@ const CommentBox: React.FC<CommentBoxProps> = ({ movieId, movieTitle }) => {
         return;
       }
 
-      const res = await fetch('/.netlify/functions/addComment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: currentName,
-          movieId,
-          text: text.trim(),
-          parentId,
-        }),
-      });
+      try {
+        const res = await fetch('/.netlify/functions/addComment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: currentName,
+            movieId,
+            text: text.trim(),
+            parentId,
+          }),
+        });
 
-      const data = await res.json();
-      if (data.success) {
-        await fetchComments();
-      } else {
-        alert(data.message);
+        const data = await res.json();
+        if (data && data.success) {
+          // refresh comments from backend
+          await fetchComments();
+        } else {
+          alert(data?.message || 'Failed to post comment');
+        }
+      } catch (err) {
+        console.error('addComment error:', err);
+        alert('Network error while posting comment');
+      } finally {
+        setIsSubmitting(false);
       }
-      setIsSubmitting(false);
     },
     [username, movieId, fetchComments]
   );
 
+  // Build nested comment tree from flat comments
+  const commentTree = useMemo(() => {
+    // normalize and map
+    const map = new Map<string, Comment & { id: string; replies: Comment[] }>();
+    comments.forEach((c) => {
+      const id = (c as any).id ? String((c as any).id) : ((c as any)._id ? String((c as any)._id) : String(Math.random()));
+      const normalized: any = {
+        ...c,
+        id,
+        replies: [],
+        parentId: c.parentId ? String(c.parentId) : null,
+        createdAt: (c as any).createdAt || (c as any).timestamp || new Date().toISOString(),
+      };
+      map.set(id, normalized);
+    });
+
+    // attach children
+    const roots: (Comment & { replies: Comment[] })[] = [];
+    map.forEach((c) => {
+      if (c.parentId && map.has(c.parentId)) {
+        map.get(c.parentId)!.replies.push(c);
+      } else {
+        roots.push(c);
+      }
+    });
+
+    // sort roots by date desc, and sort replies by date asc (so replies appear in chronological order)
+    roots.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const sortReplies = (list: any[]) => {
+      list.sort((x, y) => new Date(x.createdAt).getTime() - new Date(y.createdAt).getTime());
+      list.forEach(child => {
+        if (child.replies && child.replies.length) sortReplies(child.replies);
+      });
+    };
+    sortReplies(roots as any);
+
+    return roots;
+  }, [comments]);
+
   return (
-    <div className="bg-light-card dark:bg-brand-card rounded-lg shadow-md p-6 mt-8">
+    <div className="bg-light-card dark:bg-brand-card rounded-lg shadow-md p-6 mt-8" onClick={(e) => e.stopPropagation()}>
       <h3 className="text-xl font-bold mb-4">Join the Discussion</h3>
 
       <CommentForm
@@ -229,12 +302,12 @@ const CommentBox: React.FC<CommentBoxProps> = ({ movieId, movieTitle }) => {
       />
 
       <div className="mt-8">
-        {comments.length > 0 ? (
+        {commentTree.length > 0 ? (
           <div className="space-y-6">
-            {comments.map((c) => (
+            {commentTree.map((c) => (
               <CommentItem
                 key={c.id}
-                comment={c}
+                comment={c as Comment & { id?: string; replies?: Comment[] }}
                 onReply={(id, text) => addComment(text, undefined, id)}
                 isSubmitting={isSubmitting}
               />
