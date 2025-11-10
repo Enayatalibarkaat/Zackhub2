@@ -254,7 +254,11 @@ const CommentBox: React.FC<CommentBoxProps> = ({ movieId, movieTitle }) => {
   });
 
   // ✅ Step 4: Sort
-  roots.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  roots.sort((a, b) => {
+  const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+  const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+  return dateB - dateA;
+});
   return roots;
 }, [comments]);
 
