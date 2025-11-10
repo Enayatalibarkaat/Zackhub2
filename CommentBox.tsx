@@ -231,18 +231,32 @@ const CommentBox: React.FC<CommentBoxProps> = ({ movieId, movieTitle }) => {
   }, [username, movieId, fetchComments]);
 
   const commentTree = useMemo(() => {
-    const map = new Map<string, Comment & { replies: Comment[] }>();
-    comments.forEach(c => map.set(c.id, { ...c, replies: [] }));
+  // ✅ Step 1: Normalize all IDs (Mongo ke _id ko string id me convert kar do)
+  const normalized = comments.map(c => ({
+    ...c,
+    id: c.id || c._id, // kuch cases me _id hota hai
+    parentId: c.parentId ? String(c.parentId) : null,
+    replies: []
+  }));
 
-    const roots: (Comment & { replies: Comment[] })[] = [];
-    map.forEach(c => {
-      if (c.parentId && map.has(c.parentId)) map.get(c.parentId)!.replies.push(c);
-      else roots.push(c);
-    });
+  // ✅ Step 2: Map banao
+  const map = new Map<string, Comment & { replies: Comment[] }>();
+  normalized.forEach(c => map.set(c.id, c));
 
-    roots.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    return roots;
-  }, [comments]);
+  // ✅ Step 3: Parent–child structure banao
+  const roots: (Comment & { replies: Comment[] })[] = [];
+  normalized.forEach(c => {
+    if (c.parentId && map.has(c.parentId)) {
+      map.get(c.parentId)!.replies.push(c);
+    } else {
+      roots.push(c);
+    }
+  });
+
+  // ✅ Step 4: Sort
+  roots.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return roots;
+}, [comments]);
 
   return (
     <div className="bg-light-card dark:bg-brand-card rounded-lg shadow-md p-6 mt-8">
