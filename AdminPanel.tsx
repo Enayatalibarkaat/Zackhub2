@@ -343,7 +343,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     const res = await fetch('/.netlify/functions/deleteComment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: comment.id }),
+      body: JSON.stringify({ id: comment.id || comment._id }),
     });
 
     const data = await res.json();
