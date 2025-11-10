@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Comment } from './types';
 import { formatRelativeTime, containsProfanity } from './utils';
 
@@ -86,13 +86,12 @@ const CommentForm: React.FC<{
   );
 };
 
-// --- Recursive Comment Item Component ---
+// --- Single Comment Item ---
 const CommentItem: React.FC<{
   comment: Comment;
-  replies: Comment[];
   onReply: (commentId: string, text: string) => Promise<void>;
   isSubmitting: boolean;
-}> = ({ comment, replies, onReply, isSubmitting }) => {
+}> = ({ comment, onReply, isSubmitting }) => {
   const [isReplying, setIsReplying] = useState(false);
 
   const handleReplySubmit = async (text: string) => {
@@ -103,7 +102,7 @@ const CommentItem: React.FC<{
   return (
     <div className="flex gap-4">
       <div className="w-10 h-10 rounded-full bg-brand-primary/20 flex items-center justify-center text-brand-primary font-bold">
-        {comment.username.charAt(0).toUpperCase()}
+        {comment.username?.charAt(0).toUpperCase()}
       </div>
 
       <div className="flex-grow">
@@ -112,6 +111,9 @@ const CommentItem: React.FC<{
             <p className="font-bold">{comment.username}</p>
             <p className="text-xs">{formatRelativeTime(comment.createdAt)}</p>
           </div>
+          {comment.parentId && (
+            <p className="text-xs text-gray-400">↳ Reply to {comment.parentId}</p>
+          )}
           <p className="mt-2 break-words">{comment.text}</p>
 
           <button
@@ -132,20 +134,6 @@ const CommentItem: React.FC<{
             />
           </div>
         )}
-
-        {replies.length > 0 && (
-          <div className="mt-4 pl-6 border-l-2 border-gray-300 dark:border-gray-700 space-y-4">
-            {replies.map(reply => (
-              <CommentItem
-                key={reply.id}
-                comment={reply}
-                replies={[]}
-                onReply={onReply}
-                isSubmitting={isSubmitting}
-              />
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -163,7 +151,7 @@ const CommentBox: React.FC<CommentBoxProps> = ({ movieId, movieTitle }) => {
     if (saved) setUsername(saved);
   }, []);
 
-  // Fetch comments from backend
+  // Fetch all comments for this movie
   const fetchComments = useCallback(async () => {
     try {
       const res = await fetch(`/.netlify/functions/getComments?movieId=${movieId}`);
@@ -178,89 +166,55 @@ const CommentBox: React.FC<CommentBoxProps> = ({ movieId, movieTitle }) => {
     fetchComments();
   }, [fetchComments]);
 
-  // --- Fixed Function ---
-  const addComment = useCallback(async (text: string, name?: string, parentId: string | null = null) => {
-    console.log("Frontend movieId check:", movieId);
-    setIsSubmitting(true);
+  // Add or reply to comment
+  const addComment = useCallback(
+    async (text: string, name?: string, parentId: string | null = null) => {
+      setIsSubmitting(true);
+      let currentName = username;
 
-    let currentName = username;
+      if (!currentName && name) {
+        const regRes = await fetch('/.netlify/functions/registerUser', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: name.trim() }),
+        });
+        const regData = await regRes.json();
+        if (!regData.success && !regData.message.includes('exists')) {
+          alert(regData.message);
+          setIsSubmitting(false);
+          return;
+        }
+        currentName = name.trim();
+        localStorage.setItem('username', currentName);
+        setUsername(currentName);
+      }
 
-    if (!currentName && name) {
-      const regRes = await fetch('/.netlify/functions/registerUser', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: name.trim() }),
-      });
-      const regData = await regRes.json();
-      if (!regData.success && !regData.message.includes('exists')) {
-        alert(regData.message);
+      if (!currentName) {
         setIsSubmitting(false);
         return;
       }
-      currentName = name.trim();
-      localStorage.setItem('username', currentName);
-      setUsername(currentName);
-    }
 
-    if (!currentName) {
+      const res = await fetch('/.netlify/functions/addComment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: currentName,
+          movieId,
+          text: text.trim(),
+          parentId,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        await fetchComments();
+      } else {
+        alert(data.message);
+      }
       setIsSubmitting(false);
-      return;
-    }
-
-    // ✅ FIXED PAYLOAD (matches backend)
-    const res = await fetch('/.netlify/functions/addComment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: currentName,
-        movieId: movieId,
-        text: text.trim(),
-        parentId: parentId,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (data.success) {
-      await fetchComments(); // refresh comments
-    } else {
-      alert(data.message);
-    }
-
-    setIsSubmitting(false);
-  }, [username, movieId, fetchComments]);
-
-  const commentTree = useMemo(() => {
-  // ✅ Step 1: Normalize all IDs (Mongo ke _id ko string id me convert kar do)
-  const normalized = comments.map(c => ({
-    ...c,
-    id: c.id || c._id, // kuch cases me _id hota hai
-    parentId: c.parentId ? String(c.parentId) : null,
-    replies: []
-  }));
-
-  // ✅ Step 2: Map banao
-  const map = new Map<string, Comment & { replies: Comment[] }>();
-  normalized.forEach(c => map.set(c.id, c));
-
-  // ✅ Step 3: Parent–child structure banao
-  const roots: (Comment & { replies: Comment[] })[] = [];
-  normalized.forEach(c => {
-    if (c.parentId && map.has(c.parentId)) {
-      map.get(c.parentId)!.replies.push(c);
-    } else {
-      roots.push(c);
-    }
-  });
-
-  // ✅ Step 4: Sort
-  roots.sort((a, b) => {
-  const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-  const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-  return dateB - dateA;
-});
-  return roots;
-}, [comments]);
+    },
+    [username, movieId, fetchComments]
+  );
 
   return (
     <div className="bg-light-card dark:bg-brand-card rounded-lg shadow-md p-6 mt-8">
@@ -276,11 +230,10 @@ const CommentBox: React.FC<CommentBoxProps> = ({ movieId, movieTitle }) => {
       <div className="mt-8">
         {comments.length > 0 ? (
           <div className="space-y-6">
-            {commentTree.map(c => (
+            {comments.map((c) => (
               <CommentItem
                 key={c.id}
                 comment={c}
-                replies={c.replies}
                 onReply={(id, text) => addComment(text, undefined, id)}
                 isSubmitting={isSubmitting}
               />
