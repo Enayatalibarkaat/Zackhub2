@@ -269,7 +269,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const movieMap = useMemo(() => new Map(movies.map((m) => [m.id, m.title])), [movies]);
   const loadAllComments = async () => {
   try {
-    const res = await fetch('/.netlify/functions/getComments');
+    const res = await fetch('/.netlify/functions/getComments?movieId=all');
     const data = await res.json();
 
     if (data.success && data.comments) {
