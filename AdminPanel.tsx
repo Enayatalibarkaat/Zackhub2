@@ -1324,7 +1324,7 @@ setTmdbResults(filtered as TmdbSearchResult[]);
                   className="p-3 mb-2 rounded border dark:border-gray-700"
                 >
                   <div className="text-sm opacity-70">
-                    {c.name} • {new Date(c.timestamp).toLocaleString()}
+             {c.username || "Unknown User"} • {c.createdAt ? new Date(c.createdAt).toLocaleString() : "Unknown Time"}
                   </div>
                   <div className="font-medium">{c.movieTitle}</div>
                   <div className="mt-1">{c.text}</div>
