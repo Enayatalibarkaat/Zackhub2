@@ -336,31 +336,29 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     setAdminReplyingTo(null);
   };
 
-  const handleDeleteComment = (comment: CommentType & { movieId: string; movieTitle: string }) => {
-    const snippet =
-      comment.text.length > 50 ? `${comment.text.substring(0, 50)}...` : comment.text;
-    if (
-      window.confirm(
-        `Delete comment by ${comment.name}?\n\n"${snippet}"\n\nThis action is permanent.`
-      )
-    ) {
-      if (deleteCommentFromStorage(comment.movieId, comment.id)) {
-        const fresh = getAllCommentsFromStorage().map((c) => ({
-          ...c,
-          movieTitle: movieMap.get(c.movieId) || "Unknown Movie",
-        }));
-        setAllComments(fresh);
-        if (searchedUsername) {
-          const results = fresh.filter(
-            (c) => c.name.toLowerCase() === searchedUsername.trim().toLowerCase()
-          );
-          setFilteredComments(results);
-        }
-      } else {
-        alert("Failed to delete the comment.");
-      }
+  const handleDeleteComment = async (comment: any) => {
+  if (!window.confirm("Are you sure you want to delete this comment?")) return;
+
+  try {
+    const res = await fetch('/.netlify/functions/deleteComment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: comment.id }),
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      alert('Comment deleted ✅');
+      loadAllComments(); // refresh admin panel
+    } else {
+      alert(data.message || 'Failed to delete ❌');
     }
-  };
+  } catch (err) {
+    console.error('Failed to delete comment:', err);
+    alert('Server error ❌');
+  }
+};
 
   /** ---------------- Form helpers ---------------- */
   const isEditing = editingMovieId !== null;
