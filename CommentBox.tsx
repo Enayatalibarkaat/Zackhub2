@@ -20,6 +20,7 @@ const CommentForm: React.FC<{
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation(); // 🚫 Prevent parent form from triggering
 
     if (showNameInput && !name.trim()) {
       setError('Username required ❌');
