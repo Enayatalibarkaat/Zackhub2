@@ -2,7 +2,7 @@
 import { MongoClient } from "mongodb";
 
 const URI = process.env.COMMENTS_MONGODB_URI;
-const DB_NAME = process.env.COMMENTS_DB_NAME || "zackhubme";
+const DB_NAME = process.env.COMMENTS_DB_NAME || "Zackhubme";
 const COMMENTS_COL = "comments";
 
 let cachedClient = null;
