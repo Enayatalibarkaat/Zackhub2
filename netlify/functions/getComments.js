@@ -28,6 +28,14 @@ export const handler = async (event) => {
 
   try {
     const movieId = event.queryStringParameters?.movieId;
+    // ✅ If admin requests all comments, return everything
+if (movieId === 'all') {
+  const comments = await commentsCollection.find({}).sort({ createdAt: -1 }).toArray();
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ success: true, comments }),
+  };
+}
     if (!movieId) {
       return {
         statusCode: 400,
