@@ -2,7 +2,7 @@
 import { MongoClient } from "mongodb";
 
 const URI = process.env.COMMENTS_MONGODB_URI;
-const DB_NAME = process.env.COMMENTS_DB_NAME || "Zackhubme";
+const DB_NAME = process.env.COMMENTS_DB_NAME || "zackhubme";
 const COMMENTS_COL = "comments";
 
 let cachedClient = null;
@@ -74,7 +74,7 @@ export const handler = async (event) => {
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ success: true, comments: roots })
+      body: JSON.stringify({ success: true, comments })
     };
 
   } catch (err) {
