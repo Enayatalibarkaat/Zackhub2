@@ -304,7 +304,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleAdminReplySubmit = async (e: React.FormEvent) => {
   e.preventDefault();
-  
+
   if (!adminReplyText.trim() || !adminReplyingTo) return;
 
   try {
@@ -318,6 +318,22 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         parentId: adminReplyingTo.id || adminReplyingTo._id,
       }),
     });
+
+    const data = await res.json();
+
+    if (data.success) {
+      alert("Reply sent ✅");
+      setAdminReplyText("");
+      setAdminReplyingTo(null);
+      loadAllComments();
+    } else {
+      alert(data.message || "Failed to send reply ❌");
+    }
+  } catch (err) {
+    console.error("Failed to send admin reply:", err);
+    alert("Server error ❌");
+  }
+};
 
     const data = await res.json();
 
