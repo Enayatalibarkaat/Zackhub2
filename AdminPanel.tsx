@@ -319,8 +319,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       }),
     });
 
-    const data = await res.json();
-
     if (data.success) {
       alert("Reply sent ✅");
       setAdminReplyText("");
