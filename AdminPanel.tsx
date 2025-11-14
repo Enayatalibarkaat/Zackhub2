@@ -53,7 +53,7 @@ const initialFormState: Omit<Movie, "id"> = {
 };
 
 /** ---------- Config ---------- */
-const TMDB_API_KEY = "2a2a62df397f68c9119a58e3a084e496";
+const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY;
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/";
 
