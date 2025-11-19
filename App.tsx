@@ -50,7 +50,7 @@ const App: React.FC = () => {
 
   const effectiveLiveEditMode = isLiveEditMode && canUserLiveEdit;
 
-  // ✅ Load movies from MongoDB (Netlify API)
+  // ⭐ Load movies
   useEffect(() => {
     (async () => {
       try {
@@ -59,28 +59,30 @@ const App: React.FC = () => {
         setMovies((json.movies || []) as Movie[]);
       } catch (err) {
         console.error("Failed to fetch movies from API", err);
-        setMovies([]); // Start blank if API fails
+        setMovies([]);
       }
     })();
   }, []);
-useEffect(() => {
-  const lastView = localStorage.getItem("last-view");
-  const lastMovieId = localStorage.getItem("last-movie-id");
 
-  if (lastView === "details" && lastMovieId) {
-    // movie find karo
-    const movie = movies.find(m => m.id === lastMovieId);
-    if (movie) {
-      setSelectedMovie(movie);
-      setView("details");
+  // ⭐ Restore LAST VIEW on refresh
+  useEffect(() => {
+    const lastView = localStorage.getItem("last-view");
+    const lastMovieId = localStorage.getItem("last-movie-id");
+
+    if (lastView === "details" && lastMovieId) {
+      const movie = movies.find(m => m.id === lastMovieId);
+      if (movie) {
+        setSelectedMovie(movie);
+        setView("details");
+      }
     }
-  }
 
-  if (lastView === "admin") {
-    setView("admin");
-  }
+    if (lastView === "admin") {
+      setView("admin");
+    }
 
-}, [movies]);
+  }, [movies]);  // ⭐ Runs after movies load
+
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') as Theme;
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -126,6 +128,10 @@ useEffect(() => {
     setSelectedCategory('all');
     setSelectedGenre(null);
     setView('main');
+
+    // ⭐ Save state
+    localStorage.setItem("last-view", "main");
+
     window.scrollTo(0, 0);
   }, []);
 
@@ -140,17 +146,19 @@ useEffect(() => {
     setLogoClickCount(prev => prev + 1);
     const timer = setTimeout(() => {
       setLogoClickCount(0);
-    }, 1500); // Reset after 1.5 seconds of inactivity
+    }, 1500);
     setLogoClickTimer(timer);
   }, [logoClickTimer, view, handleGoHome]);
 
+  // ⭐ MOVIE DETAILS — Save refresh state
   const handleSelectMovie = (movie: Movie) => {
-    if (effectiveLiveEditMode) return; // Prevent navigation in live edit mode
-    scrollPositionRef.current = window.scrollY; // Save scroll position
+    if (effectiveLiveEditMode) return;
+    scrollPositionRef.current = window.scrollY;
     setSelectedMovie(movie);
     setView('details');
-    localStorage.setItem("last-view", "details");
-localStorage.setItem("last-movie-id", movie.id);
+
+    localStorage.setItem("last-view", "details");   // ⭐ save
+    localStorage.setItem("last-movie-id", movie.id);
   };
 
   const handleBack = () => {
@@ -162,6 +170,8 @@ localStorage.setItem("last-movie-id", movie.id);
     setSelectedGenre(null);
     setView('main');
 
+    localStorage.setItem("last-view", "main");   // ⭐ save
+
     if (isComingFromDetails) {
       setTimeout(() => {
         window.scrollTo(0, scrollPositionRef.current);
@@ -169,16 +179,20 @@ localStorage.setItem("last-movie-id", movie.id);
     }
   };
 
+  // ⭐ ADMIN PANEL — Save refresh state
   const handleLoginSuccess = (user: CurrentUser) => {
     setCurrentUser(user);
     setView('admin');
-    localStorage.setItem("last-view", "admin");
+
+    localStorage.setItem("last-view", "admin"); // ⭐ save
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
     setIsLiveEditMode(false);
     setView('main');
+
+    localStorage.setItem("last-view", "main");
   };
 
   const handleSelectCategory = (category: MovieCategory | 'all') => {
