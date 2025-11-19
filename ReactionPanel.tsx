@@ -2,11 +2,11 @@ import "./src/styles/reactions.css";
 import React, { useEffect, useState } from "react";
 
 const reactionsList = [
-  { id: "love", emoji: "â¤ï¸" },
-  { id: "haha", emoji: "ðŸ˜‚" },
-  { id: "wow", emoji: "ðŸ¤¯" },
-  { id: "sad", emoji: "ðŸ˜¢" },
-  { id: "angry", emoji: "ðŸ˜ " },
+  { id: "love", emoji: "❤️" },
+  { id: "haha", emoji: "😂" },
+  { id: "wow", emoji: "😮" },
+  { id: "sad", emoji: "😭" },
+  { id: "angry", emoji: "😡" },
 ];
 
 export default function ReactionPanel({ movieId }) {
