@@ -70,7 +70,7 @@ const App: React.FC = () => {
     const lastMovieId = localStorage.getItem("last-movie-id");
 
     if (lastView === "details" && lastMovieId) {
-      const movie = movies.find(m => m.id === lastMovieId);
+      const movie = movies.find(m => (m.id || m._id) === lastMovieId);   // ⭐ FIXED
       if (movie) {
         setSelectedMovie(movie);
         setView("details");
@@ -158,7 +158,7 @@ const App: React.FC = () => {
     setView('details');
 
     localStorage.setItem("last-view", "details");   // ⭐ save
-    localStorage.setItem("last-movie-id", movie.id);
+    localStorage.setItem("last-movie-id", movie.id || movie._id);   // ⭐ FIXED
   };
 
   const handleBack = () => {
