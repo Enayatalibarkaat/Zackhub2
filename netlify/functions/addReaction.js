@@ -2,7 +2,7 @@ const { MongoClient } = require("mongodb");
 
 const uri = process.env.COMMENTS_MONGODB_URI;
 const dbName = "zackhub";
-const collectionName = "comments"; // reactions bhi yahi me save honge
+const collectionName = "comments";
 
 let clientPromise = null;
 async function getClient() {
@@ -23,26 +23,20 @@ exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
 
-    // ensure movieId is string
     const movieId = String(body.movieId);
     const reaction = body.reaction;
-    const previousReaction = body.previousReaction;
+    const previous = body.previousReaction;
 
     if (!movieId || !reaction) {
-      return {
-        statusCode: 400,
-        body: "movieId & reaction required",
-      };
+      return { statusCode: 400, body: "movieId & reaction required" };
     }
 
     const client = await getClient();
     const db = client.db(dbName);
     const col = db.collection(collectionName);
 
-    // movie document find karo
+    // Document exists ya create
     let doc = await col.findOne({ movieId });
-
-    // agar nahi mila to create karo
     if (!doc) {
       doc = {
         movieId,
@@ -58,43 +52,45 @@ exports.handler = async (event) => {
       await col.insertOne(doc);
     }
 
-    // ----------------------------------------
-    // MAIN LOGIC: SAME / CHANGE REACTION
-    // ----------------------------------------
+    // INC Object
+    let change = {};
 
-    // Agar same reaction dobara dabaya → count -1
-    if (previousReaction === reaction) {
-      await col.updateOne(
-        { movieId },
-        { $inc: { [`reactions.${reaction}`]: -1 } }
-      );
+    // Agar same reaction pe dobara click kiya → -1
+    if (previous === reaction) {
+      change[`reactions.${reaction}`] = -1;
+    } else {
+      // New reaction → +1
+      change[`reactions.${reaction}`] = 1;
 
-      const updatedSame = await col.findOne({ movieId });
-      return {
-        statusCode: 200,
-        body: JSON.stringify(updatedSame.reactions),
-      };
+      // Purani reaction hatani hai → -1
+      if (previous) {
+        change[`reactions.${previous}`] = -1;
+      }
     }
 
-    // Agar user naya reaction choose kare:
-    // New reaction +1 & previous -1 (agar previous exist karta hai)
-    let incObj = { [`reactions.${reaction}`]: 1 };
+    await col.updateOne({ movieId }, { $inc: change });
 
-    if (previousReaction && previousReaction !== reaction) {
-      incObj[`reactions.${previousReaction}`] = -1;
-    }
-
-    await col.updateOne({ movieId }, { $inc: incObj });
-
-    // Final updated doc
+    // Final updated data
     const updated = await col.findOne({ movieId });
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(updated.reactions),
-    };
+    // Negative values fix
+    const safe = { ...updated.reactions };
+    let fixNeeded = false;
+    for (let key in safe) {
+      if (safe[key] < 0) {
+        safe[key] = 0;
+        fixNeeded = true;
+      }
+    }
+
+    if (fixNeeded) {
+      await col.updateOne({ movieId }, { $set: { reactions: safe } });
+      return { statusCode: 200, body: JSON.stringify(safe) };
+    }
+
+    return { statusCode: 200, body: JSON.stringify(updated.reactions) };
   } catch (err) {
     console.error(err);
-    return { statusCode: 500, body: "Internal error" };
+    return { statusCode: 500, body: "internal error" };
   }
 };
