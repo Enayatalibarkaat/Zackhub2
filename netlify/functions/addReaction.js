@@ -23,7 +23,10 @@ exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
 
-    const { movieId, reaction, previousReaction } = body;
+    // ensure movieId is string
+    const movieId = String(body.movieId);
+    const reaction = body.reaction;
+    const previousReaction = body.previousReaction;
 
     if (!movieId || !reaction) {
       return {
@@ -56,10 +59,10 @@ exports.handler = async (event) => {
     }
 
     // ----------------------------------------
-    // ⭐ MAIN LOGIC: SAME / CHANGE REACTION
+    // MAIN LOGIC: SAME / CHANGE REACTION
     // ----------------------------------------
 
-    // ➤ Agar same reaction dobara dabaya → count -1
+    // Agar same reaction dobara dabaya → count -1
     if (previousReaction === reaction) {
       await col.updateOne(
         { movieId },
@@ -73,7 +76,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // ➤ Agar user naya reaction choose kare:
+    // Agar user naya reaction choose kare:
     // New reaction +1 & previous -1 (agar previous exist karta hai)
     let incObj = { [`reactions.${reaction}`]: 1 };
 
