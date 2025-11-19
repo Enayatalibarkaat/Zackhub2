@@ -132,6 +132,8 @@ const App: React.FC = () => {
     scrollPositionRef.current = window.scrollY; // Save scroll position
     setSelectedMovie(movie);
     setView('details');
+    localStorage.setItem("last-view", "details");
+localStorage.setItem("last-movie-id", movie.id);
   };
 
   const handleBack = () => {
