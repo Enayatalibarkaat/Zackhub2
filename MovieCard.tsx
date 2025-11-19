@@ -32,9 +32,9 @@ const MovieCard: React.FC<MovieCardProps> = ({
 
   return (
     <div
-      className="bg-light-card dark:bg-brand-card rounded-lg overflow-hidden shadow-md hover:shadow-xl dark:hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group flex flex-col"
-      onClick={() => onSelectMovie(movie)}
-    >
+  className="bg-light-card dark:bg-brand-card rounded-lg overflow-hidden shadow-md hover:shadow-xl dark:hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group flex flex-col"
+  onClick={() => onSelectMovie({ ...movie, id: movieId })}  // ⭐ FIX
+>
       <div className="relative">
         <img
           src={poster}
