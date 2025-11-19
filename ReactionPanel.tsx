@@ -1,4 +1,4 @@
-import "./src/styles/reactions.css";
+import "../styles/reactions.css"; 
 import React, { useEffect, useState } from "react";
 
 const reactionsList = [
@@ -13,11 +13,11 @@ export default function ReactionPanel({ movieId }) {
   const [counts, setCounts] = useState({});
   const [selected, setSelected] = useState<string | null>(null);
 
-  // ðŸ”¥ Step 1: Fetch counts from backend
+  // 🔥 Step 1: Fetch counts from backend
   const fetchCounts = async () => {
     try {
       const res = await fetch(
-        `/api/getReactions?movieId=${encodeURIComponent(movieId)}`
+        `/.netlify/functions/getReactions?movieId=${encodeURIComponent(movieId)}`
       );
       const data = await res.json();
       setCounts(data);
@@ -34,15 +34,15 @@ export default function ReactionPanel({ movieId }) {
     if (saved) setSelected(saved);
   }, [movieId]);
 
-  // ðŸ”¥ Step 2: Reaction click handler
+  // 🔥 Step 2: Reaction click handler
   const handleReaction = async (reactionId: string) => {
     const previous = selected;
 
-    // ðŸ”¥ðŸ”¥ UI ko turant update karo (optimistic update)
+    // 🔥🔥 UI ko turant update karo (optimistic update)
     let updated = { ...counts };
 
     if (previous === reactionId) {
-      // same reaction again click â†’ remove reaction
+      // same reaction again click → remove reaction
       updated[reactionId] = Math.max(0, updated[reactionId] - 1);
       setSelected(null);
       localStorage.removeItem(`reaction-${movieId}`);
@@ -61,9 +61,9 @@ export default function ReactionPanel({ movieId }) {
     // UI instantly update
     setCounts(updated);
 
-    // ðŸ”¥ðŸ”¥ Backend ko background me update bhejo
+    // 🔥🔥 Backend ko background me update bhejo
     try {
-      await fetch("/api/addReaction", {
+      await fetch("/.netlify/functions/addReaction", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -87,8 +87,8 @@ export default function ReactionPanel({ movieId }) {
           <button
             onClick={() => handleReaction(r.id)}
             className={`text-3xl transition-all duration-200 ${
-  selected === r.id ? "scale-125 reaction-animate" : "scale-100"
-}`}
+              selected === r.id ? "scale-125 reaction-animate" : "scale-100"
+            }`}
           >
             {r.emoji}
           </button>
