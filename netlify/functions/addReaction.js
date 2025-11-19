@@ -25,7 +25,7 @@ exports.handler = async (event) => {
 
     const movieId = String(body.movieId);
     const reaction = body.reaction;
-    const previous = body.previousReaction;
+    const previous = body.previousReaction || null;  // <- IMPORTANT FIX
 
     if (!movieId || !reaction) {
       return { statusCode: 400, body: "movieId & reaction required" };
@@ -35,7 +35,6 @@ exports.handler = async (event) => {
     const db = client.db(dbName);
     const col = db.collection(collectionName);
 
-    // Document exists ya create
     let doc = await col.findOne({ movieId });
     if (!doc) {
       doc = {
@@ -52,17 +51,19 @@ exports.handler = async (event) => {
       await col.insertOne(doc);
     }
 
-    // INC Object
     let change = {};
 
-    // Agar same reaction pe dobara click kiya → -1
+    // SAME REACTION again -> REMOVE IT
     if (previous === reaction) {
       change[`reactions.${reaction}`] = -1;
-    } else {
-      // New reaction → +1
+    } 
+    
+    // NEW reaction
+    else {
+      // new reaction +1
       change[`reactions.${reaction}`] = 1;
 
-      // Purani reaction hatani hai → -1
+      // old reaction -1 (if exists)
       if (previous) {
         change[`reactions.${previous}`] = -1;
       }
@@ -70,25 +71,32 @@ exports.handler = async (event) => {
 
     await col.updateOne({ movieId }, { $inc: change });
 
-    // Final updated data
+    // get updated
     const updated = await col.findOne({ movieId });
 
-    // Negative values fix
+    // never allow negative values
     const safe = { ...updated.reactions };
-    let fixNeeded = false;
-    for (let key in safe) {
-      if (safe[key] < 0) {
-        safe[key] = 0;
-        fixNeeded = true;
+    let needFix = false;
+    for (let k in safe) {
+      if (safe[k] < 0) {
+        safe[k] = 0;
+        needFix = true;
       }
     }
 
-    if (fixNeeded) {
+    if (needFix) {
       await col.updateOne({ movieId }, { $set: { reactions: safe } });
-      return { statusCode: 200, body: JSON.stringify(safe) };
+      return {
+        statusCode: 200,
+        body: JSON.stringify(safe),
+      };
     }
 
-    return { statusCode: 200, body: JSON.stringify(updated.reactions) };
+    return {
+      statusCode: 200,
+      body: JSON.stringify(updated.reactions),
+    };
+
   } catch (err) {
     console.error(err);
     return { statusCode: 500, body: "internal error" };
