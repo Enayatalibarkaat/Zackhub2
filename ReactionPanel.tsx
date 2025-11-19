@@ -1,3 +1,4 @@
+import "../styles/reactions.css";
 import React, { useEffect, useState } from "react";
 
 const reactionsList = [
