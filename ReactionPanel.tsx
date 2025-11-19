@@ -87,8 +87,8 @@ export default function ReactionPanel({ movieId }) {
           <button
             onClick={() => handleReaction(r.id)}
             className={`text-3xl transition-all duration-200 ${
-  selected === r.id ? "scale-125 reaction-animate" : "scale-100"
-}`}
+             selected === r.id ? "scale-125 reaction-animate" : "scale-100"
+             }`}
           >
             {r.emoji}
           </button>
