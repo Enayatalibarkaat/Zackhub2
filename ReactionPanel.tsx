@@ -1,118 +1,99 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 
-const reactions = [
-  { id: 'love', emoji: '❤️', label: 'Love' },
-  { id: 'haha', emoji: '😂', label: 'Haha' },
-  { id: 'wow', emoji: '🤯', label: 'Wow' },
-  { id: 'sad', emoji: '😢', label: 'Sad' },
-  { id: 'angry', emoji: '😠', label: 'Angry' },
+const reactionsList = [
+  { id: "love", emoji: "❤️" },
+  { id: "haha", emoji: "😂" },
+  { id: "wow", emoji: "🤯" },
+  { id: "sad", emoji: "😢" },
+  { id: "angry", emoji: "😠" },
 ];
 
-interface ReactionPanelProps {
-  movieId: string;
-}
+export default function ReactionPanel({ movieId }) {
+  const [counts, setCounts] = useState({});
+  const [selected, setSelected] = useState<string | null>(null);
 
-type Counts = { [key: string]: number };
-
-const API_BASE = '/.netlify/functions';
-
-const getOrCreateUserId = () => {
-  let uid = localStorage.getItem('zackhub_user_id');
-  if (!uid) {
-    uid = 'u_' + Math.random().toString(36).slice(2, 11);
-    localStorage.setItem('zackhub_user_id', uid);
-  }
-  return uid;
-};
-
-const ReactionPanel: React.FC<ReactionPanelProps> = ({ movieId }) => {
-  const [counts, setCounts] = useState<Counts>(() =>
-    reactions.reduce((acc, r) => ({ ...acc, [r.id]: 0 }), {})
-  );
-  const [selectedReaction, setSelectedReaction] = useState<string | null>(null);
-  const userId = getOrCreateUserId();
-
-  // Load from MongoDB
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch(
-          `${API_BASE}/get-reactions?movieId=${movieId}&userId=${userId}`
-        );
-        const data = await res.json();
-        setCounts({ ...counts, ...data.counts });
-        setSelectedReaction(data.userReaction || null);
-      } catch (e) {
-        console.error("Failed", e);
-      }
+  // 🔥 Step 1: Fetch counts from backend
+  const fetchCounts = async () => {
+    try {
+      const res = await fetch(
+        `/api/getReactions?movieId=${encodeURIComponent(movieId)}`
+      );
+      const data = await res.json();
+      setCounts(data);
+    } catch (e) {
+      console.log("Error fetching reactions", e);
     }
-    load();
+  };
+
+  useEffect(() => {
+    fetchCounts();
+
+    // user ka last reaction yaad rakho
+    const saved = localStorage.getItem(`reaction-${movieId}`);
+    if (saved) setSelected(saved);
   }, [movieId]);
 
-  const handleClick = async (reactionId: string) => {
-    // Optimistic update
-    const prev = selectedReaction;
-    const newCounts = { ...counts };
+  // 🔥 Step 2: Reaction click handler
+  const handleReaction = async (reactionId: string) => {
+    const previous = selected;
 
-    if (prev === reactionId) {
-      newCounts[reactionId] = Math.max(0, newCounts[reactionId] - 1);
-      setSelectedReaction(null);
+    // 🔥🔥 UI ko turant update karo (optimistic update)
+    let updated = { ...counts };
+
+    if (previous === reactionId) {
+      // same reaction again click → remove reaction
+      updated[reactionId] = Math.max(0, updated[reactionId] - 1);
+      setSelected(null);
+      localStorage.removeItem(`reaction-${movieId}`);
     } else {
-      if (prev) newCounts[prev] = Math.max(0, newCounts[prev] - 1);
-      newCounts[reactionId] = (newCounts[reactionId] || 0) + 1;
-      setSelectedReaction(reactionId);
+      // new reaction click
+      updated[reactionId] = (updated[reactionId] || 0) + 1;
+
+      if (previous) {
+        updated[previous] = Math.max(0, (updated[previous] || 1) - 1);
+      }
+
+      setSelected(reactionId);
+      localStorage.setItem(`reaction-${movieId}`, reactionId);
     }
 
-    setCounts(newCounts);
+    // UI instantly update
+    setCounts(updated);
 
-    // Save to MongoDB (background)
+    // 🔥🔥 Backend ko background me update bhejo
     try {
-      const res = await fetch(`${API_BASE}/post-reaction`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      await fetch("/api/addReaction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           movieId,
-          userId,
-          reaction: prev === reactionId ? null : reactionId
+          reaction: reactionId,
+          previousReaction: previous,
         }),
       });
-      const body = await res.json();
-      setCounts(body.counts);
-    } catch (err) {
-      console.error("Save failed", err);
+
+      // Optional: fresh data fetch
+      fetchCounts();
+    } catch (e) {
+      console.log("Error saving reaction");
     }
   };
 
   return (
-    <div className="flex items-center justify-center gap-4 sm:gap-8 flex-wrap">
-      {reactions.map((reaction) => {
-        const isSelected = selectedReaction === reaction.id;
-
-        return (
-          <div key={reaction.id} className="flex flex-col items-center gap-2">
-            <button
-              onClick={() => handleClick(reaction.id)}
-              className={`
-                relative p-3 rounded-full transition-all duration-300 transform
-                hover:scale-125 hover:-translate-y-1
-                ${
-                  isSelected
-                    ? 'bg-brand-primary/20 ring-2 ring-brand-primary scale-125 -translate-y-1'
-                    : 'bg-light-sidebar dark:bg-brand-card shadow-sm hover:shadow-md'
-                }
-              `}
-            >
-              <span className="text-3xl sm:text-4xl">{reaction.emoji}</span>
-            </button>
-
-            <span className="font-bold">
-              {counts[reaction.id] || 0}
-            </span>
-          </div>
-        );
-      })}
+    <div className="flex gap-5 justify-center mt-4">
+      {reactionsList.map((r) => (
+        <div key={r.id} className="text-center">
+          <button
+            onClick={() => handleReaction(r.id)}
+            className={`text-3xl transition-all duration-200 ${
+              selected === r.id ? "scale-125" : "scale-100"
+            }`}
+          >
+            {r.emoji}
+          </button>
+          <div className="mt-1 font-bold">{counts[r.id] || 0}</div>
+        </div>
+      ))}
     </div>
   );
-};
-
-export default ReactionPanel;
+}
