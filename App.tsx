@@ -63,7 +63,24 @@ const App: React.FC = () => {
       }
     })();
   }, []);
+useEffect(() => {
+  const lastView = localStorage.getItem("last-view");
+  const lastMovieId = localStorage.getItem("last-movie-id");
 
+  if (lastView === "details" && lastMovieId) {
+    // movie find karo
+    const movie = movies.find(m => m.id === lastMovieId);
+    if (movie) {
+      setSelectedMovie(movie);
+      setView("details");
+    }
+  }
+
+  if (lastView === "admin") {
+    setView("admin");
+  }
+
+}, [movies]);
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') as Theme;
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -155,6 +172,7 @@ localStorage.setItem("last-movie-id", movie.id);
   const handleLoginSuccess = (user: CurrentUser) => {
     setCurrentUser(user);
     setView('admin');
+    localStorage.setItem("last-view", "admin");
   };
 
   const handleLogout = () => {
