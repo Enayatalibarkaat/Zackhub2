@@ -1,28 +1,41 @@
 import { connect } from "./connect.js";
 import Movie from "./moviesSchema.js";
 
-export const handler = async () => {
-  // --- ONLY CHANGE: Added Headers for Caching & Speed ---
+export const handler = async (event, context) => {
+  // --- SMART CACHING HEADERS ---
   const headers = {
     "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type",
     "Content-Type": "application/json",
-    // Ye line data ko 1 ghante tak CDN par save rakhegi (Instant Load)
-    "Cache-Control": "public, max-age=300, s-maxage=3600"
+    // s-maxage=60: 60 second tak data super fast load hoga (Cache se).
+    // stale-while-revalidate=600: Agar 60 sec se purana data hai, to user ko wahi dikhao 
+    // lekin background me chupke se naya data update kar lo.
+    "Cache-Control": "public, s-maxage=60, stale-while-revalidate=600"
   };
+
+  // Handle Preflight requests
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 200, headers, body: "OK" };
+  }
 
   try {
     await connect();
-    const movies = await Movie.find().sort({ createdAt: -1 }).lean();
+    
+    // Data fetch query
+    const movies = await Movie.find()
+      .sort({ createdAt: -1 })
+      .lean(); // .lean() makes it faster
+
     return {
       statusCode: 200,
-      headers, // Yahan headers add kiya hai
+      headers,
       body: JSON.stringify({ movies }),
     };
   } catch (error) {
     console.error("Error fetching movies:", error);
     return {
       statusCode: 500,
-      headers, // Yahan bhi headers add kiya hai (Error safety ke liye)
+      headers,
       body: JSON.stringify({ error: "Failed to load movies" }),
     };
   }
