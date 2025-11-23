@@ -32,6 +32,9 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const scrollPositionRef = useRef(0);
   const [isLiveEditMode, setIsLiveEditMode] = useState(false);
+  
+  // --- NEW: Loading State (Shuru mein True rahega) ---
+  const [loading, setLoading] = useState(true);
 
   const canUserLiveEdit = useMemo(() => {
     if (!currentUser) return false;
@@ -50,7 +53,7 @@ const App: React.FC = () => {
 
   const effectiveLiveEditMode = isLiveEditMode && canUserLiveEdit;
 
-  // ⭐ Load movies
+  // ⭐ Load movies with Loading Logic
   useEffect(() => {
     (async () => {
       try {
@@ -60,6 +63,9 @@ const App: React.FC = () => {
       } catch (err) {
         console.error("Failed to fetch movies from API", err);
         setMovies([]);
+      } finally {
+        // --- NEW: Jab data aa jaye ya error aaye, loading band kar do ---
+        setLoading(false);
       }
     })();
   }, []);
@@ -70,7 +76,7 @@ const App: React.FC = () => {
     const lastMovieId = localStorage.getItem("last-movie-id");
 
     if (lastView === "details" && lastMovieId) {
-      const movie = movies.find(m => (m.id || m._id) === lastMovieId);   // ⭐ FIXED
+      const movie = movies.find(m => (m.id || m._id) === lastMovieId);
       if (movie) {
         setSelectedMovie(movie);
         setView("details");
@@ -81,7 +87,7 @@ const App: React.FC = () => {
       setView("admin");
     }
 
-  }, [movies]);  // ⭐ Runs after movies load
+  }, [movies]);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') as Theme;
@@ -128,10 +134,7 @@ const App: React.FC = () => {
     setSelectedCategory('all');
     setSelectedGenre(null);
     setView('main');
-
-    // ⭐ Save state
     localStorage.setItem("last-view", "main");
-
     window.scrollTo(0, 0);
   }, []);
 
@@ -150,27 +153,23 @@ const App: React.FC = () => {
     setLogoClickTimer(timer);
   }, [logoClickTimer, view, handleGoHome]);
 
-  // ⭐ MOVIE DETAILS — Save refresh state
   const handleSelectMovie = (movie: Movie) => {
     if (effectiveLiveEditMode) return;
     scrollPositionRef.current = window.scrollY;
     setSelectedMovie(movie);
     setView('details');
-
-    localStorage.setItem("last-view", "details");   // ⭐ save
-    localStorage.setItem("last-movie-id", movie.id || movie._id);   // ⭐ FIXED
+    localStorage.setItem("last-view", "details");
+    localStorage.setItem("last-movie-id", movie.id || movie._id);
   };
 
   const handleBack = () => {
     const isComingFromDetails = view === 'details';
-
     setSelectedMovie(null);
     setSearchQuery('');
     setSelectedCategory('all');
     setSelectedGenre(null);
     setView('main');
-
-    localStorage.setItem("last-view", "main");   // ⭐ save
+    localStorage.setItem("last-view", "main");
 
     if (isComingFromDetails) {
       setTimeout(() => {
@@ -179,19 +178,16 @@ const App: React.FC = () => {
     }
   };
 
-  // ⭐ ADMIN PANEL — Save refresh state
   const handleLoginSuccess = (user: CurrentUser) => {
     setCurrentUser(user);
     setView('admin');
-
-    localStorage.setItem("last-view", "admin"); // ⭐ save
+    localStorage.setItem("last-view", "admin");
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
     setIsLiveEditMode(false);
     setView('main');
-
     localStorage.setItem("last-view", "main");
   };
 
@@ -283,8 +279,19 @@ const App: React.FC = () => {
             }`}>
               {getGridTitle()}
             </h1>
-            <MovieGrid movies={moviesForCurrentPage} onSelectMovie={handleSelectMovie} searchQuery={searchQuery} isLiveEditMode={effectiveLiveEditMode} onUpdateField={handleUpdateMovieField} />
-            {totalPages > 1 && (
+            
+            {/* --- NEW: Loading Prop Passed Here --- */}
+            <MovieGrid 
+              movies={moviesForCurrentPage} 
+              onSelectMovie={handleSelectMovie} 
+              searchQuery={searchQuery} 
+              isLiveEditMode={effectiveLiveEditMode} 
+              onUpdateField={handleUpdateMovieField}
+              isLoading={loading} 
+            />
+            
+            {/* Pagination tabhi dikhao jab loading khatam ho jaye */}
+            {!loading && totalPages > 1 && (
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
