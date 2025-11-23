@@ -33,7 +33,7 @@ const App: React.FC = () => {
   const scrollPositionRef = useRef(0);
   const [isLiveEditMode, setIsLiveEditMode] = useState(false);
   
-  // --- NEW: Loading State (Shuru mein True rahega) ---
+  // --- Loading State ---
   const [loading, setLoading] = useState(true);
 
   const canUserLiveEdit = useMemo(() => {
@@ -53,7 +53,14 @@ const App: React.FC = () => {
 
   const effectiveLiveEditMode = isLiveEditMode && canUserLiveEdit;
 
-  // ⭐ Load movies with Loading Logic
+  // --- VISITOR TRACKING (Ping Backend) ---
+  useEffect(() => {
+    // Website khulte hi attendance lagao
+    fetch("/.netlify/functions/trackVisit", { method: "POST" })
+      .catch(err => console.error("Tracking failed", err));
+  }, []);
+
+  // --- LOAD MOVIES ---
   useEffect(() => {
     (async () => {
       try {
@@ -64,27 +71,12 @@ const App: React.FC = () => {
         console.error("Failed to fetch movies from API", err);
         setMovies([]);
       } finally {
-        // --- NEW: Jab data aa jaye ya error aaye, loading band kar do ---
         setLoading(false);
       }
     })();
   }, []);
-  // ... imports ke baad
 
-const App: React.FC = () => {
-  // ... purane states
-
-  // --- TRACKING CODE START ---
-  useEffect(() => {
-    // Ye code website khulte hi background me chalega
-    // Isse website ki speed par 0% asar padega
-    fetch("/.netlify/functions/trackVisit", { method: "POST" })
-      .catch(err => console.error("Tracking failed", err));
-  }, []); 
-  // --- TRACKING CODE END ---
-
-  // ... baaki code wesa hi rahega
-  // ⭐ Restore LAST VIEW on refresh
+  // --- RESTORE VIEW STATE ---
   useEffect(() => {
     const lastView = localStorage.getItem("last-view");
     const lastMovieId = localStorage.getItem("last-movie-id");
@@ -293,8 +285,6 @@ const App: React.FC = () => {
             }`}>
               {getGridTitle()}
             </h1>
-            
-            {/* --- NEW: Loading Prop Passed Here --- */}
             <MovieGrid 
               movies={moviesForCurrentPage} 
               onSelectMovie={handleSelectMovie} 
@@ -303,8 +293,6 @@ const App: React.FC = () => {
               onUpdateField={handleUpdateMovieField}
               isLoading={loading} 
             />
-            
-            {/* Pagination tabhi dikhao jab loading khatam ho jaye */}
             {!loading && totalPages > 1 && (
               <Pagination
                 currentPage={currentPage}
