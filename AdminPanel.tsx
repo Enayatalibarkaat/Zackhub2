@@ -1,4 +1,4 @@
-
+// Part 1/5
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
   Movie,
@@ -25,21 +25,7 @@ import {
 
 /**
  * MERGED AdminPanel
- * - UI: taken from File-2 (design / layout)
- * - Backend & logic: preserved from File-1 (Netlify Functions + MongoDB)
- *
- * NOTE:
- * - TMDB API key is taken from the original File-1 constant below.
- * - This file expects the same Netlify function endpoints as File-1:
- *   /.netlify/functions/getMovies
- *   /.netlify/functions/addMovie
- *   /.netlify/functions/updateMovie
- *   /.netlify/functions/deleteMovie
- *   /.netlify/functions/getComments?movieId=all
- *   /.netlify/functions/addComment
- *   /.netlify/functions/deleteComment
- *
- * Make sure those functions exist on your Netlify backend as before.
+ * - Added: Visitor Stats Logic
  */
 
 /** ---------- Config (from original File-1) ---------- */
@@ -93,7 +79,7 @@ const PermissionToggle: React.FC<{
 /** ---------- Component ---------- */
 interface AdminPanelProps {
   movies: Movie[];
-  setMovies?: React.Dispatch<React.SetStateAction<Movie[]>>; // optional, some setups pass setMovies
+  setMovies?: React.Dispatch<React.SetStateAction<Movie[]>>;
   onLogout: () => void;
   currentUser: CurrentUser | null;
 }
@@ -142,8 +128,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const [editingPermissionsFor, setEditingPermissionsFor] = useState<AdminUser | null>(null);
   const [tempPermissions, setTempPermissions] = useState<AdminPermissions | null>(null);
 
+  // --- NEW: Visitor Stats State ---
+  const [visitStats, setVisitStats] = useState({ today: 0, total: 0 });
+
   // UI helpers
   const isSuperAdmin = currentUser?.role === "super";
+
   const stats = useMemo(
     () => ({
       total: movies.length,
@@ -165,7 +155,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     },
     [currentUser, isSuperAdmin]
   );
-
+  // Part 2/5
   /** ---------------- DB sync (Netlify functions, from File-1) ---------------- */
   const normalizeMovies = (list: any[]): Movie[] =>
     (list || []).map((m: any) => ({
@@ -204,6 +194,22 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     fetchMovies();
   }, [fetchMovies]);
 
+  // --- NEW: Fetch Visitor Stats ---
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await fetch("/.netlify/functions/getStats");
+        const data = await res.json();
+        if (data && !data.error) {
+          setVisitStats({ today: data.today || 0, total: data.total || 0 });
+        }
+      } catch (err) {
+        console.error("Failed to fetch visitor stats:", err);
+      }
+    };
+    fetchStats();
+  }, []);
+
   // Admins (local storage helpers as before)
   useEffect(() => {
     if (isSuperAdmin) setAdmins(getAdmins());
@@ -213,7 +219,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     e.preventDefault();
     setAdminFormError("");
     setAdminFormSuccess("");
-
     if (!newAdminUsername.trim() || !newAdminPassword.trim()) {
       setAdminFormError("Username and password cannot be empty.");
       return;
@@ -223,6 +228,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       username: newAdminUsername.trim(),
       password: newAdminPassword.trim(),
     });
+
     if (result.success) {
       setAdmins(getAdmins());
       setNewAdminUsername("");
@@ -251,6 +257,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     setEditingPermissionsFor(admin);
     setTempPermissions(admin.permissions);
   };
+
   const handleSavePermissions = () => {
     if (editingPermissionsFor && tempPermissions) {
       if (updateAdminPermissions(editingPermissionsFor.username, tempPermissions)) {
@@ -262,7 +269,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       }
     }
   };
-
+  // Part 3/5
   /** ---------------- Comments (Netlify) ---------------- */
   const movieMap = useMemo(() => new Map(movies.map((m) => [m.id, m.title])), [movies]);
 
@@ -277,7 +284,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         }));
         setAllComments(commentsWithTitles);
       } else {
-        // fallback to local storage method
         const fromStorage = getAllCommentsFromStorage().map((c) => ({
           ...c,
           movieTitle: movieMap.get(c.movieId) || "Unknown Movie",
@@ -314,7 +320,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const handleAdminReplySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adminReplyText.trim() || !adminReplyingTo) return;
-
     try {
       const res = await fetch("/.netlify/functions/addComment", {
         method: "POST",
@@ -343,7 +348,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleDeleteComment = async (comment: any) => {
     if (!window.confirm("Are you sure you want to delete this comment?")) return;
-
     try {
       const res = await fetch("/.netlify/functions/deleteComment", {
         method: "POST",
@@ -528,7 +532,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       value;
     setFormState((p) => ({ ...p, seasons: newSeasons }));
   };
-
   const addEpisodeTelegramLink = (seasonIndex: number, episodeIndex: number) => {
     const newSeasons = JSON.parse(JSON.stringify(formState.seasons || []));
     if (!newSeasons[seasonIndex].episodes[episodeIndex].telegramLinks) {
@@ -564,7 +567,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       value;
     setFormState((p) => ({ ...p, seasons: newSeasons }));
   };
-
+  // Part 4/5
   /** ---------------- TMDB (search & select) ---------------- */
   const handleTmdbSearch = async () => {
     if (!tmdbSearchQuery.trim()) return;
@@ -742,17 +745,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   };
   useEffect(() => () => handleMouseUp(), [handleMouseUp]);
 
-  // input class used in File-2 UI
   const inputClass =
     "w-full p-2 bg-light-bg dark:bg-brand-bg rounded border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-primary transition-colors text-light-text dark:text-brand-text";
-
+  
   const commentsToDisplay = searchedUsername ? filteredComments : allComments.slice(0, 50);
   const filteredManagedMovies = useMemo(() => {
     return movies.filter((movie) =>
       movie.title.toLowerCase().includes(manageSearchQuery.toLowerCase())
     );
   }, [movies, manageSearchQuery]);
-
+  // Part 5a (Paste this first)
   /** ---------------- Render (UI from File-2) ---------------- */
   return (
     <div className="container mx-auto p-4 animate-fade-in">
@@ -773,6 +775,21 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           <h1 className="text-3xl font-bold text-brand-primary">Admin Panel</h1>
         </div>
         <button onClick={onLogout} className="bg-gray-500 dark:bg-gray-600 hover:bg-gray-600 dark:hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition-colors duration-300">Logout</button>
+      </div>
+
+      {/* --- NEW: VISITOR STATS SECTION --- */}
+      <div className="mb-8">
+        <h2 className="text-2xl mb-4 text-light-text dark:text-brand-text font-semibold">Visitor Insights</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 rounded-lg shadow-md text-white">
+            <p className="text-4xl font-bold">{visitStats.today}</p>
+            <p className="text-sm opacity-90 mt-1">Unique Visitors Today</p>
+          </div>
+          <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-4 rounded-lg shadow-md text-white">
+            <p className="text-4xl font-bold">{visitStats.total}</p>
+            <p className="text-sm opacity-90 mt-1">Total Unique Visitors (30 Days)</p>
+          </div>
+        </div>
       </div>
 
       {/* Comment Management Sidebar */}
@@ -1016,42 +1033,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                           <p className="text-xs font-semibold text-light-text-secondary dark:text-brand-text-secondary">Direct Download Links</p>
                           {episode.downloadLinks.map((link, linkIndex) => (
                             <div key={linkIndex} className="flex items-center gap-2">
-                              <input type="text" placeholder="Quality" value={link.quality} onChange={(e) => handleEpisodeDownloadLinkChange(seasonIndex, episodeIndex, linkIndex, "quality", e.target.value)} className={`${inputClass} w-1/3`} />
-                              <input type="url" placeholder="URL" value={link.url} onChange={(e) => handleEpisodeDownloadLinkChange(seasonIndex, episodeIndex, linkIndex, "url", e.target.value)} className={`${inputClass} flex-grow`} />
-                              <button type="button" onClick={() => removeEpisodeDownloadLink(seasonIndex, episodeIndex, linkIndex)} className="bg-red-600 p-2 rounded-md text-white flex-shrink-0" aria-label="Remove link">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                              </button>
-                            </div>
-                          ))}
-                          <button type="button" onClick={() => addEpisodeDownloadLink(seasonIndex, episodeIndex)} className="text-blue-500 hover:text-blue-700 text-sm font-medium">+ Add Direct Link</button>
-                        </div>
-                      </div>
-                    ))}
-                    <button type="button" onClick={() => addEpisode(seasonIndex)} className="bg-green-500/20 hover:bg-green-500/30 text-green-700 dark:text-green-300 font-bold py-1 px-3 rounded text-sm">+ Add Episode</button>
-                  </fieldset>
-                ))}
-                <button type="button" onClick={addSeason} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors text-sm">+ Add Season</button>
-              </fieldset>
-            ) : (
-              <>
-                <fieldset className="border border-gray-300 dark:border-gray-600 p-4 rounded-md space-y-3">
-                  <legend className="px-2 text-sm font-medium text-light-text-secondary dark:text-brand-text-secondary">Telegram Links</legend>
-                  {formState.telegramLinks?.map((link, index) => (
-                    <div key={index} className="flex items-center gap-2 animate-fade-in">
-                      <input type="text" placeholder="Quality (e.g., 720p)" value={link.quality} onChange={(e) => handleTelegramLinkChange(index, "quality", e.target.value)} className={`${inputClass} w-1/3`} />
-                      <input type="text" placeholder="File ID (e.g., 49606)" value={link.fileId} onChange={(e) => handleTelegramLinkChange(index, "fileId", e.target.value)} className={`${inputClass} flex-grow`} />
-                      <button type="button" onClick={() => removeTelegramLink(index)} className="bg-red-600 hover:bg-red-700 text-white font-bold p-2 rounded-md transition-colors flex-shrink-0" aria-label="Remove link">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                      </button>
-                    </div>
-                  ))}
-                  <button type="button" onClick={addTelegramLink} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors text-sm">+ Add Telegram Link</button>
-                </fieldset>
-                <fieldset className="border border-gray-300 dark:border-gray-600 p-4 rounded-md space-y-3">
-                  <legend className="px-2 text-sm font-medium text-light-text-secondary dark:text-brand-text-secondary">Download Links</legend>
-                  {formState.downloadLinks?.map((link, index) => (
-                    <div key={index} className="flex items-center gap-2 animate-fade-in">
-                      <input type="text" placeholder="Quality (e.g., 720p)" value={link.quality} onChange={(e) => handleDownloadLinkChange(index, "quality", e.target.value)} className={`${inputClass} w-1/3`} />
+                              <input type="text" placeholder="Quality (e.g., 720p)" value={link.quality} onChange={(e) => handleDownloadLinkChange(index, "quality", e.target.value)} className={`${inputClass} w-1/3`} />
                       <input type="url" placeholder="URL" value={link.url} onChange={(e) => handleDownloadLinkChange(index, "url", e.target.value)} className={`${inputClass} flex-grow`} />
                       <button type="button" onClick={() => removeDownloadLink(index)} className="bg-red-600 hover:bg-red-700 text-white font-bold p-2 rounded-md transition-colors flex-shrink-0" aria-label="Remove link">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
@@ -1103,6 +1085,173 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </div>
 
+      <div className="mt-12">
+        <h2 className="text-2xl mb-4 text-light-text dark:text-brand-text font-semibold">Manage Content</h2>
+        <div className="mb-4">
+          <input
+            type="text"
+            placeholder="Search existing content..."
+            value={manageSearchQuery}
+            onChange={(e) => setManageSearchQuery(e.target.value)}
+            className={inputClass}
+            aria-label="Search content"
+          />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          {filteredManagedMovies.length > 0 ? (
+            filteredManagedMovies.map((movie) => (
+              <div
+                key={movie.id}
+                className="bg-light-card dark:bg-brand-card rounded-lg overflow-hidden shadow-md hover:shadow-xl dark:hover:shadow-brand-primary/20 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group"
+                onClick={() => setSelectedManagedMovie(movie)}
+              >
+                <img src={movie.posterUrl} alt={movie.title} className="w-full h-auto aspect-[2/3] object-cover" />
+                <div className="p-2">
+                  <p className="font-semibold truncate text-sm text-light-text dark:text-brand-text group-hover:text-light-primary dark:group-hover:text-brand-primary transition-colors">{movie.title}</p>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="col-span-full text-center text-light-text-secondary dark:text-brand-text-secondary py-8">
+              {manageSearchQuery ? `No results found for "${manageSearchQuery}".` : "No content has been added yet."}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {selectedManagedMovie && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 animate-fade-in"
+          onClick={() => setSelectedManagedMovie(null)}
+          aria-modal="true"
+          role="dialog"
+        >
+          <div
+            className="bg-light-card dark:bg-brand-card p-6 rounded-xl shadow-2xl w-full max-w-sm m-4 flex flex-col items-center gap-6 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-xl font-bold text-center text-light-text dark:text-brand-text">{selectedManagedMovie.title}</h3>
+            <img
+              src={selectedManagedMovie.posterUrl}
+              alt={`${selectedManagedMovie.title} poster`}
+              className="w-full max-w-xs h-auto aspect-[2/3] object-cover rounded-lg shadow-lg"
+            />
+            <div className="w-full flex flex-col gap-3">
+              {hasPermission("canEditContent") && (
+                <button
+                  onClick={() => handleStartEdit(selectedManagedMovie)}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg text-lg transition-colors duration-300 transform hover:scale-105 shadow-md"
+                >
+                  Edit Post
+                </button>
+              )}
+              {hasPermission("canDeleteContent") && (
+                <button
+                  onClick={() => handleRemove(selectedManagedMovie.id, selectedManagedMovie.title)}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg text-lg transition-colors duration-300 transform hover:scale-105 shadow-md"
+                >
+                  Remove Post
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setSelectedManagedMovie(null)}
+              className="absolute top-2 right-2 p-2 rounded-full text-light-text-secondary dark:text-brand-text-secondary hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+              aria-label="Close"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {adminReplyingTo && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 animate-fade-in"
+          onClick={() => setAdminReplyingTo(null)}
+          aria-modal="true"
+          role="dialog"
+        >
+          <div
+            className="bg-light-card dark:bg-brand-card p-6 rounded-xl shadow-2xl w-full max-w-lg m-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold text-light-text dark:text-brand-text mb-2">Replying to {adminReplyingTo.name}</h3>
+            <p className="text-sm text-light-text-secondary dark:text-brand-text-secondary mb-4 p-3 bg-light-bg dark:bg-brand-bg rounded-md italic">
+              "{adminReplyingTo.text}"
+            </p>
+            <form onSubmit={handleAdminReplySubmit}>
+              <textarea
+                value={adminReplyText}
+                onChange={(e) => setAdminReplyText(e.target.value)}
+                placeholder="Write your reply..."
+                rows={4}
+                className="w-full p-2 bg-light-bg dark:bg-brand-bg rounded border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                required
+              />
+              <div className="mt-4 flex justify-end gap-3">
+                <button type="button" onClick={() => setAdminReplyingTo(null)} className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-700 text-light-text dark:text-brand-text font-bold py-2 px-4 rounded">Cancel</button>
+                <button type="submit" className="bg-brand-primary hover:bg-opacity-80 text-white font-bold py-2 px-4 rounded">Send Reply</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {editingPermissionsFor && tempPermissions && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 animate-fade-in"
+          onClick={() => setEditingPermissionsFor(null)}
+        >
+          <div
+            className="bg-light-card dark:bg-brand-card p-6 rounded-xl shadow-2xl w-full max-w-md m-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-xl font-bold text-light-text dark:text-brand-text mb-4">
+              Permissions for <span className="text-brand-primary">{editingPermissionsFor.username}</span>
+            </h3>
+            <div className="space-y-3">
+              <PermissionToggle
+                label="Add Content"
+                isChecked={!!tempPermissions.canAddContent}
+                onChange={(isChecked) => setTempPermissions((p) => ({ ...p!, canAddContent: isChecked }))}
+              />
+              <PermissionToggle
+                label="Edit Content"
+                isChecked={!!tempPermissions.canEditContent}
+                onChange={(isChecked) => setTempPermissions((p) => ({ ...p!, canEditContent: isChecked }))}
+              />
+              <PermissionToggle
+                label="Delete Content"
+                isChecked={!!tempPermissions.canDeleteContent}
+                onChange={(isChecked) => setTempPermissions((p) => ({ ...p!, canDeleteContent: isChecked }))}
+              />
+              <PermissionToggle
+                label="Manage Comments"
+                isChecked={!!tempPermissions.canManageComments}
+                onChange={(isChecked) => setTempPermissions((p) => ({ ...p!, canManageComments: isChecked }))}
+              />
+              <PermissionToggle
+                label="Live Edit Content"
+                isChecked={!!tempPermissions.canLiveEdit}
+                onChange={(isChecked) => setTempPermissions((p) => ({ ...p!, canLiveEdit: isChecked }))}
+              />
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={() => setEditingPermissionsFor(null)} className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-700 text-light-text dark:text-brand-text font-bold py-2 px-4 rounded">Cancel</button>
+              <button type="button" onClick={handleSavePermissions} className="bg-brand-primary hover:bg-opacity-80 text-white font-bold py-2 px-4 rounded">Save Permissions</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default AdminPanel;
+            // Part 5b (Paste this immediately after Part 5a)
       <div className="mt-12">
         <h2 className="text-2xl mb-4 text-light-text dark:text-brand-text font-semibold">Manage Content</h2>
         <div className="mb-4">
