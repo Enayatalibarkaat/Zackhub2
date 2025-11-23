@@ -69,7 +69,21 @@ const App: React.FC = () => {
       }
     })();
   }, []);
+  // ... imports ke baad
 
+const App: React.FC = () => {
+  // ... purane states
+
+  // --- TRACKING CODE START ---
+  useEffect(() => {
+    // Ye code website khulte hi background me chalega
+    // Isse website ki speed par 0% asar padega
+    fetch("/.netlify/functions/trackVisit", { method: "POST" })
+      .catch(err => console.error("Tracking failed", err));
+  }, []); 
+  // --- TRACKING CODE END ---
+
+  // ... baaki code wesa hi rahega
   // ⭐ Restore LAST VIEW on refresh
   useEffect(() => {
     const lastView = localStorage.getItem("last-view");
