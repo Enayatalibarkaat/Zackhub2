@@ -134,6 +134,11 @@ const App: React.FC = () => {
     }
   }, [view]);
 
+  // ⭐ NEW: Auto Scroll to Top when Page Changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentPage]);
+
   const handleGoHome = useCallback(() => {
     setSelectedMovie(null);
     setSearchQuery('');
