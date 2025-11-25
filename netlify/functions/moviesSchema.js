@@ -10,6 +10,12 @@ const TelegramLinkSchema = new mongoose.Schema({
   fileId: String,
 });
 
+const FullSeasonFileSchema = new mongoose.Schema({
+  title: String,
+  downloadLinks: [DownloadLinkSchema],
+  telegramLinks: [TelegramLinkSchema],
+});
+
 const EpisodeSchema = new mongoose.Schema({
   episodeNumber: Number,
   title: String,
@@ -20,6 +26,7 @@ const EpisodeSchema = new mongoose.Schema({
 const SeasonSchema = new mongoose.Schema({
   seasonNumber: Number,
   episodes: [EpisodeSchema],
+  fullSeasonFiles: [FullSeasonFileSchema], // NEW ADDITION
 });
 
 const GenreSchema = new mongoose.Schema({
