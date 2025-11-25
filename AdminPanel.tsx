@@ -75,6 +75,7 @@ interface AdminPanelProps {
   onLogout: () => void;
   currentUser: CurrentUser | null;
 }
+
 const AdminPanel: React.FC<AdminPanelProps> = ({
   movies,
   setMovies,
@@ -119,12 +120,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const [editingPermissionsFor, setEditingPermissionsFor] = useState<AdminUser | null>(null);
   const [tempPermissions, setTempPermissions] = useState<AdminPermissions | null>(null);
 
-  // --- NEW: Visitor Stats State ---
+  // Visitor Stats
   const [visitStats, setVisitStats] = useState({ today: 0, total: 0 });
 
   // UI helpers
   const isSuperAdmin = currentUser?.role === "super";
-
   const stats = useMemo(
     () => ({
       total: movies.length,
@@ -135,7 +135,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     }),
     [movies]
   );
-
   const hasPermission = useCallback(
     (permission: keyof AdminPermissions) => {
       if (isSuperAdmin) return true;
@@ -146,6 +145,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     },
     [currentUser, isSuperAdmin]
   );
+
   // --- DB Sync Logic ---
   const normalizeMovies = (list: any[]): Movie[] =>
     (list || []).map((m: any) => ({
@@ -160,7 +160,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       rating: Number(m.rating || 0),
       downloadLinks: m.downloadLinks || [],
       telegramLinks: m.telegramLinks || [],
-      seasons: m.seasons || [],
+      seasons: (m.seasons || []).map((s: any) => ({
+        seasonNumber: s.seasonNumber,
+        episodes: s.episodes || [],
+        fullSeasonFiles: s.fullSeasonFiles || [], // Added New Field
+      })),
       trailerLink: m.trailerLink || "",
       genres: m.genres || [],
       releaseDate: m.releaseDate || "",
@@ -184,7 +188,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     fetchMovies();
   }, [fetchMovies]);
 
-  // --- NEW: Fetch Visitor Stats ---
+  // Visitor Stats
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -228,11 +232,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   const handleRemoveAdmin = (username: string) => {
-    if (
-      window.confirm(
-        `Are you sure you want to remove the admin "${username}"?`
-      )
-    ) {
+    if (window.confirm(`Are you sure you want to remove the admin "${username}"?`)) {
       if (removeAdmin(username)) {
         setAdmins((prev) => prev.filter((a) => a.username !== username));
       } else {
@@ -353,6 +353,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       alert("Server error ❌");
     }
   };
+
   // --- Form Helpers ---
   const isEditing = editingMovieId !== null;
 
@@ -365,21 +366,18 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const handleStartEdit = (movie: Movie) => {
     setEditingMovieId(movie.id);
     setFormState({
-      title: movie.title || "",
-      posterUrl: movie.posterUrl || "",
-      description: movie.description || "",
-      category: movie.category,
-      actors: movie.actors || "",
-      director: movie.director || "",
-      producer: movie.producer || "",
+      ...movie,
       rating: movie.rating || 0,
+      runtime: movie.runtime || 0,
       downloadLinks: movie.downloadLinks || [],
       telegramLinks: movie.telegramLinks || [],
-      seasons: movie.seasons || [],
+      seasons: (movie.seasons || []).map(s => ({
+        ...s,
+        episodes: s.episodes || [],
+        fullSeasonFiles: s.fullSeasonFiles || []
+      })),
       trailerLink: movie.trailerLink || "",
       genres: movie.genres || [],
-      releaseDate: movie.releaseDate || "",
-      runtime: movie.runtime || 0,
       tagline: movie.tagline || "",
       backdropUrl: movie.backdropUrl || "",
     });
@@ -403,7 +401,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       reader.readAsDataURL(file);
     }
   };
-
+  // --- Link Helpers ---
   const handleDownloadLinkChange = (index: number, field: keyof DownloadLink, value: string) => {
     const updated = formState.downloadLinks ? [...formState.downloadLinks] : [];
     if (!updated[index]) updated[index] = { quality: "", url: "" };
@@ -429,11 +427,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   // --- Seasons & Episodes Helpers ---
   const addSeason = () => {
     const newSeasonNumber = formState.seasons ? formState.seasons.length + 1 : 1;
-    const newSeason: Season = { seasonNumber: newSeasonNumber, episodes: [] };
+    const newSeason: Season = { seasonNumber: newSeasonNumber, episodes: [], fullSeasonFiles: [] };
     setFormState((p) => ({ ...p, seasons: [...(p.seasons || []), newSeason] }));
   };
   const removeSeason = (seasonIndex: number) => {
-    setFormState((p) => ({ ...p, seasons: (p.seasons || []).filter((_, i) => i !== seasonIndex) }));
+    setFormState((p) => ({
+      ...p,
+      seasons: (p.seasons || []).filter((_, i) => i !== seasonIndex),
+    }));
   };
 
   const addEpisode = (seasonIndex: number) => {
@@ -499,7 +500,57 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     newSeasons[seasonIndex].episodes[episodeIndex].telegramLinks[linkIndex][field] = value;
     setFormState((p) => ({ ...p, seasons: newSeasons }));
   };
-  // --- TMDB Search ---
+  // --- FULL SEASON FILE HELPERS (NEW) ---
+  const addSeasonFile = (sIdx: number) => {
+    const ns = JSON.parse(JSON.stringify(formState.seasons || []));
+    if (!ns[sIdx].fullSeasonFiles) ns[sIdx].fullSeasonFiles = [];
+    ns[sIdx].fullSeasonFiles.push({ title: "", downloadLinks: [], telegramLinks: [] });
+    setFormState((p) => ({ ...p, seasons: ns }));
+  };
+  const removeSeasonFile = (sIdx: number, fIdx: number) => {
+    const ns = JSON.parse(JSON.stringify(formState.seasons || []));
+    ns[sIdx].fullSeasonFiles = ns[sIdx].fullSeasonFiles.filter((_: any, i: number) => i !== fIdx);
+    setFormState((p) => ({ ...p, seasons: ns }));
+  };
+  const handleSeasonFileTitleChange = (sIdx: number, fIdx: number, value: string) => {
+    const ns = JSON.parse(JSON.stringify(formState.seasons || []));
+    ns[sIdx].fullSeasonFiles[fIdx].title = value;
+    setFormState((p) => ({ ...p, seasons: ns }));
+  };
+  // Full Season TG Links
+  const addSeasonFileTG = (sIdx: number, fIdx: number) => {
+    const ns = JSON.parse(JSON.stringify(formState.seasons || []));
+    ns[sIdx].fullSeasonFiles[fIdx].telegramLinks.push({ quality: "", fileId: "" });
+    setFormState((p) => ({ ...p, seasons: ns }));
+  };
+  const rmSeasonFileTG = (sIdx: number, fIdx: number, lIdx: number) => {
+    const ns = JSON.parse(JSON.stringify(formState.seasons || []));
+    ns[sIdx].fullSeasonFiles[fIdx].telegramLinks = ns[sIdx].fullSeasonFiles[fIdx].telegramLinks.filter((_: any, i: number) => i !== lIdx);
+    setFormState((p) => ({ ...p, seasons: ns }));
+  };
+  const chgSeasonFileTG = (sIdx: number, fIdx: number, lIdx: number, f: string, v: string) => {
+    const ns = JSON.parse(JSON.stringify(formState.seasons || []));
+    ns[sIdx].fullSeasonFiles[fIdx].telegramLinks[lIdx][f] = v;
+    setFormState((p) => ({ ...p, seasons: ns }));
+  };
+  // Full Season DL Links
+  const addSeasonFileDL = (sIdx: number, fIdx: number) => {
+    const ns = JSON.parse(JSON.stringify(formState.seasons || []));
+    ns[sIdx].fullSeasonFiles[fIdx].downloadLinks.push({ quality: "", url: "" });
+    setFormState((p) => ({ ...p, seasons: ns }));
+  };
+  const rmSeasonFileDL = (sIdx: number, fIdx: number, lIdx: number) => {
+    const ns = JSON.parse(JSON.stringify(formState.seasons || []));
+    ns[sIdx].fullSeasonFiles[fIdx].downloadLinks = ns[sIdx].fullSeasonFiles[fIdx].downloadLinks.filter((_: any, i: number) => i !== lIdx);
+    setFormState((p) => ({ ...p, seasons: ns }));
+  };
+  const chgSeasonFileDL = (sIdx: number, fIdx: number, lIdx: number, f: string, v: string) => {
+    const ns = JSON.parse(JSON.stringify(formState.seasons || []));
+    ns[sIdx].fullSeasonFiles[fIdx].downloadLinks[lIdx][f] = v;
+    setFormState((p) => ({ ...p, seasons: ns }));
+  };
+
+  // --- TMDB Search Logic ---
   const handleTmdbSearch = async () => {
     if (!tmdbSearchQuery.trim()) return;
     setIsTmdbLoading(true);
@@ -560,102 +611,65 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       setIsTmdbLoading(false);
     }
   };
-
-  // --- CRUD Logic ---
+  // --- CRUD ---
   const saveNewMovie = async () => {
     const payload = { ...formState, rating: Number(formState.rating) || 0, runtime: Number(formState.runtime) || 0, category: formState.category as MovieCategory };
     const res = await fetch("/.netlify/functions/addMovie", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (!res.ok) throw new Error("Add movie failed");
   };
-
   const updateMovie = async (id: string) => {
     const payload = { id, ...{ ...formState, rating: Number(formState.rating) || 0, runtime: Number(formState.runtime) || 0, category: formState.category as MovieCategory } };
     const res = await fetch("/.netlify/functions/updateMovie", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (!res.ok) throw new Error("Update movie failed");
   };
-
   const deleteMovie = async (id: string) => {
     const res = await fetch("/.netlify/functions/deleteMovie", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
     if (!res.ok) throw new Error("Delete movie failed");
   };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (editingMovieId) {
-        if (!hasPermission("canEditMovies") && !hasPermission("canEditContent")) {
-          alert("You don't have permission to edit content.");
-          return;
-        }
+        if (!hasPermission("canEditMovies") && !hasPermission("canEditContent")) { alert("No Permission"); return; }
         await updateMovie(editingMovieId);
       } else {
-        if (!hasPermission("canAddMovies") && !hasPermission("canAddContent")) {
-          alert("You don't have permission to add content.");
-          return;
-        }
+        if (!hasPermission("canAddMovies") && !hasPermission("canAddContent")) { alert("No Permission"); return; }
         await saveNewMovie();
       }
       await fetchMovies();
       resetForm();
       alert("Saved successfully!");
-    } catch (err: any) {
-      console.error(err);
-      alert(err?.message || "Save failed");
-    }
+    } catch (err: any) { console.error(err); alert(err?.message || "Save failed"); }
   };
-
   const handleRemove = async (id: string, title: string) => {
-    if (!hasPermission("canDeleteMovies") && !hasPermission("canDeleteContent")) {
-      alert("You don't have permission to delete content.");
-      return;
-    }
-    if (!window.confirm(`Are you sure you want to remove "${title}"?`)) return;
+    if (!hasPermission("canDeleteMovies") && !hasPermission("canDeleteContent")) { alert("No Permission"); return; }
+    if (!window.confirm(`Delete "${title}"?`)) return;
     try {
       await deleteMovie(id);
       await fetchMovies();
-      alert("Removed successfully.");
+      alert("Removed.");
       if (editingMovieId === id) resetForm();
       setSelectedManagedMovie(null);
-    } catch (err: any) {
-      console.error(err);
-      alert(err?.message || "Remove failed");
-    }
+    } catch (err: any) { console.error(err); alert("Remove failed"); }
   };
 
   // UI Helpers
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (sidebarRef.current) {
-      const newWidth = window.innerWidth - e.clientX;
-      const clamped = Math.max(400, Math.min(newWidth, window.innerWidth * 0.98));
-      sidebarRef.current.style.width = `${clamped}px`;
-    }
-  }, []);
-  const handleMouseUp = useCallback(() => {
-    document.removeEventListener("mousemove", handleMouseMove);
-    document.removeEventListener("mouseup", handleMouseUp);
-    document.body.style.userSelect = "";
-  }, [handleMouseMove]);
-  const handleMouseDownOnResize = (e: React.MouseEvent) => {
-    e.preventDefault();
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-    document.body.style.userSelect = "none";
-  };
+  const handleMouseMove = useCallback((e: MouseEvent) => { if (sidebarRef.current) { const newWidth = window.innerWidth - e.clientX; const clamped = Math.max(400, Math.min(newWidth, window.innerWidth * 0.98)); sidebarRef.current.style.width = `${clamped}px`; } }, []);
+  const handleMouseUp = useCallback(() => { document.removeEventListener("mousemove", handleMouseMove); document.removeEventListener("mouseup", handleMouseUp); document.body.style.userSelect = ""; }, [handleMouseMove]);
+  const handleMouseDownOnResize = (e: React.MouseEvent) => { e.preventDefault(); document.addEventListener("mousemove", handleMouseMove); document.addEventListener("mouseup", handleMouseUp); document.body.style.userSelect = "none"; };
   useEffect(() => () => handleMouseUp(), [handleMouseUp]);
 
   const inputClass = "w-full p-2 bg-light-bg dark:bg-brand-bg rounded border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-primary transition-colors text-light-text dark:text-brand-text";
   const commentsToDisplay = searchedUsername ? filteredComments : allComments.slice(0, 50);
   const filteredManagedMovies = useMemo(() => movies.filter((movie) => movie.title.toLowerCase().includes(manageSearchQuery.toLowerCase())), [movies, manageSearchQuery]);
-  /** ---------------- Render ---------------- */
+
   return (
     <div className="container mx-auto p-4 animate-fade-in">
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
           {hasPermission("canManageComments") && (
-            <button onClick={() => setIsCommentSidebarOpen(true)} className="p-2 rounded-md text-light-text-secondary dark:text-brand-text-secondary hover:bg-black/5 dark:hover:bg-white/5 transition-colors" aria-label="Manage Comments">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z" /><path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h1a2 2 0 002-2V9a2 2 0 00-2-2h-1z" /></svg>
-            </button>
+            <button onClick={() => setIsCommentSidebarOpen(true)} className="p-2 rounded-md text-light-text-secondary dark:text-brand-text-secondary hover:bg-black/5 dark:hover:bg-white/5 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z" /><path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h1a2 2 0 002-2V9a2 2 0 00-2-2h-1z" /></svg></button>
           )}
           <h1 className="text-3xl font-bold text-brand-primary">Admin Panel</h1>
         </div>
@@ -666,43 +680,35 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       <div className="mb-8">
         <h2 className="text-2xl mb-4 text-light-text dark:text-brand-text font-semibold">Visitor Insights</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 rounded-lg shadow-md text-white">
-            <p className="text-4xl font-bold">{visitStats.today}</p>
-            <p className="text-sm opacity-90 mt-1">Unique Visitors Today</p>
-          </div>
-          <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-4 rounded-lg shadow-md text-white">
-            <p className="text-4xl font-bold">{visitStats.total}</p>
-            <p className="text-sm opacity-90 mt-1">Total Unique Visitors (30 Days)</p>
-          </div>
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 rounded-lg shadow-md text-white"><p className="text-4xl font-bold">{visitStats.today}</p><p className="text-sm opacity-90 mt-1">Today</p></div>
+          <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-4 rounded-lg shadow-md text-white"><p className="text-4xl font-bold">{visitStats.total}</p><p className="text-sm opacity-90 mt-1">Monthly</p></div>
         </div>
       </div>
 
-      {/* Comment Sidebar */}
       {hasPermission("canManageComments") && (
         <>
-          <div className={`fixed inset-0 bg-black z-40 transition-opacity duration-300 ${isCommentSidebarOpen ? "bg-opacity-60" : "bg-opacity-0 pointer-events-none"}`} onClick={() => setIsCommentSidebarOpen(false)} aria-hidden="true" />
-          <div ref={sidebarRef} className={`fixed top-0 right-0 h-full bg-light-sidebar dark:bg-brand-sidebar shadow-2xl z-50 flex flex-col transform transition-transform duration-300 ease-in-out w-[90vw] md:w-[50vw] ${isCommentSidebarOpen ? "translate-x-0" : "translate-x-full"}`} role="dialog" aria-modal="true">
+          <div className={`fixed inset-0 bg-black z-40 transition-opacity duration-300 ${isCommentSidebarOpen ? "bg-opacity-60" : "bg-opacity-0 pointer-events-none"}`} onClick={() => setIsCommentSidebarOpen(false)} />
+          <div ref={sidebarRef} className={`fixed top-0 right-0 h-full bg-light-sidebar dark:bg-brand-sidebar shadow-2xl z-50 flex flex-col transform transition-transform duration-300 ease-in-out w-[90vw] md:w-[50vw] ${isCommentSidebarOpen ? "translate-x-0" : "translate-x-full"}`} role="dialog">
             <div onMouseDown={handleMouseDownOnResize} className="absolute top-0 -left-1 w-2 h-full cursor-col-resize group z-10 hidden md:block"><div className="w-full h-full bg-transparent group-hover:bg-brand-primary/50 transition-colors duration-200" /></div>
             <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-              <h2 className="text-xl font-bold text-light-text dark:text-brand-text">Comment Management</h2>
-              <button onClick={() => setIsCommentSidebarOpen(false)} className="p-2 rounded-full text-light-text-secondary dark:text-brand-text-secondary hover:bg-black/5 dark:hover:bg-white/5 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+              <h2 className="text-xl font-bold text-light-text dark:text-brand-text">Comments</h2>
+              <button onClick={() => setIsCommentSidebarOpen(false)} className="p-2 rounded-full text-light-text-secondary hover:bg-black/5 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
             </div>
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
               <form onSubmit={handleCommentSearch} className="flex gap-2">
-                <input type="text" placeholder="Search by exact username..." value={commentSearch} onChange={(e) => setCommentSearch(e.target.value)} className="w-full p-2 bg-light-card dark:bg-brand-card rounded border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-primary" />
-                <button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors flex-shrink-0">Search</button>
+                <input type="text" placeholder="Search username..." value={commentSearch} onChange={(e) => setCommentSearch(e.target.value)} className="w-full p-2 bg-light-card dark:bg-brand-card rounded border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-primary" />
+                <button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">Search</button>
               </form>
             </div>
             <div className="flex-grow p-4 space-y-4 overflow-y-auto">
-              <h3 className="font-semibold text-light-text dark:text-brand-text">{searchedUsername ? `Results for "${searchedUsername}"` : 'Recent Comments'}</h3>
               {commentsToDisplay.length > 0 ? commentsToDisplay.map(comment => (
-                <div key={comment.id} className="p-3 bg-light-card dark:bg-brand-card rounded-lg shadow-sm animate-fade-in">
-                  <div className="flex justify-between items-center text-xs"><p className="font-bold text-light-text dark:text-brand-text">{comment.name || comment.username}</p><p className="text-light-text-secondary dark:text-brand-text-secondary">{comment.createdAt ? new Date(comment.createdAt).toLocaleString() : (comment.timestamp ? new Date(comment.timestamp).toLocaleString() : "Unknown")}</p></div>
-                  <p className="text-xs text-light-text-secondary dark:text-brand-text-secondary mt-1">On: <span className="font-semibold text-brand-primary">{comment.movieTitle}</span></p>
+                <div key={comment.id} className="p-3 bg-light-card dark:bg-brand-card rounded-lg shadow-sm">
+                  <div className="flex justify-between items-center text-xs"><p className="font-bold text-light-text dark:text-brand-text">{comment.name}</p><p className="text-light-text-secondary dark:text-brand-text-secondary">{comment.createdAt ? new Date(comment.createdAt).toLocaleString() : "Unknown"}</p></div>
+                  <p className="text-xs text-light-text-secondary mt-1">On: <span className="font-semibold text-brand-primary">{comment.movieTitle}</span></p>
                   <p className="mt-2 text-sm text-light-text dark:text-brand-text">{comment.text}</p>
                   <div className="text-right mt-2 flex justify-end items-center gap-4"><button onClick={() => setAdminReplyingTo(comment)} className="text-xs font-bold text-blue-500 hover:underline">Reply</button><button onClick={() => handleDeleteComment(comment)} className="text-xs font-bold text-red-500 hover:underline">Delete</button></div>
                 </div>
-              )) : (<p className="text-center text-light-text-secondary dark:text-brand-text-secondary py-4">{searchedUsername ? `No comments found.` : 'No comments posted yet.'}</p>)}
+              )) : (<p className="text-center text-light-text-secondary py-4">No comments.</p>)}
             </div>
           </div>
         </>
@@ -710,49 +716,42 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {isSuperAdmin && (
         <div className="bg-light-card dark:bg-brand-card p-6 rounded-lg mb-8 shadow-md">
-          <h2 className="text-2xl mb-4 text-light-text dark:text-brand-text font-semibold">Admin Management</h2>
+          <h2 className="text-2xl mb-4 text-light-text dark:text-brand-text font-semibold">Admins</h2>
           <form onSubmit={handleAddAdmin} className="border border-gray-300 dark:border-gray-600 p-4 rounded-md mb-6 space-y-3 bg-light-bg/50 dark:bg-brand-bg/50">
-            <h3 className="text-lg font-semibold text-light-text dark:text-brand-text">Add New Admin</h3>
             <div className="flex flex-col sm:flex-row gap-2">
               <input type="text" placeholder="Username" value={newAdminUsername} onChange={(e) => setNewAdminUsername(e.target.value)} className={inputClass} />
               <input type="password" placeholder="Password" value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)} className={inputClass} />
-              <button type="submit" className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Add Admin</button>
+              <button type="submit" className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Add</button>
             </div>
             {adminFormError && <p className="text-red-500 text-sm">{adminFormError}</p>}
             {adminFormSuccess && <p className="text-green-500 text-sm">{adminFormSuccess}</p>}
           </form>
           <div>
-            <h3 className="text-lg font-semibold text-light-text dark:text-brand-text mb-2">Current Admins</h3>
-            {admins.length > 0 ? (
-              <ul className="space-y-2">{admins.map(admin => (
-                <li key={admin.username} className="flex flex-col sm:flex-row justify-between items-center p-3 bg-light-bg dark:bg-brand-bg rounded-md gap-2">
-                  <span className="font-medium text-light-text dark:text-brand-text">{admin.username}</span>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => handleOpenPermissionsModal(admin)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-md text-sm">Manage Permissions</button>
-                    <button onClick={() => handleRemoveAdmin(admin.username)} className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-md text-sm">Remove</button>
-                  </div>
-                </li>
-              ))}</ul>
-            ) : (<p className="text-light-text-secondary dark:text-brand-text-secondary text-center py-2">No other admins.</p>)}
+            {admins.length > 0 ? (<ul className="space-y-2">{admins.map(admin => (
+              <li key={admin.username} className="flex flex-col sm:flex-row justify-between items-center p-3 bg-light-bg dark:bg-brand-bg rounded-md gap-2">
+                <span className="font-medium text-light-text dark:text-brand-text">{admin.username}</span>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => handleOpenPermissionsModal(admin)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-md text-sm">Perms</button>
+                  <button onClick={() => handleRemoveAdmin(admin.username)} className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-md text-sm">Del</button>
+                </div>
+              </li>
+            ))}</ul>) : (<p className="text-light-text-secondary text-center py-2">No other admins.</p>)}
           </div>
         </div>
       )}
       {hasPermission("canAddContent") && (
         <div className="bg-light-card dark:bg-brand-card p-6 rounded-lg mb-8 shadow-md">
-          <h2 className="text-2xl mb-4 text-light-text dark:text-brand-text font-semibold">{isEditing ? `Editing "${formState.title}"` : "Add New Movie/Series"}</h2>
-
+          <h2 className="text-2xl mb-4 text-light-text dark:text-brand-text font-semibold">{isEditing ? `Edit "${formState.title}"` : "Add Content"}</h2>
           <div className="border border-gray-300 dark:border-gray-600 p-4 rounded-md mb-6 space-y-3 bg-light-bg/50 dark:bg-brand-bg/50">
-            <h3 className="text-lg font-semibold text-light-text dark:text-brand-text">Fetch from TMDB</h3>
             <div className="flex gap-2">
-              <input type="text" value={tmdbSearchQuery} onChange={(e) => setTmdbSearchQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleTmdbSearch())} placeholder="e.g., The Dark Knight" className={inputClass} />
-              <button type="button" onClick={handleTmdbSearch} disabled={isTmdbLoading || !tmdbSearchQuery} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded disabled:bg-gray-400">{isTmdbLoading ? "Searching..." : "Search"}</button>
+              <input type="text" value={tmdbSearchQuery} onChange={(e) => setTmdbSearchQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleTmdbSearch())} placeholder="TMDB Search" className={inputClass} />
+              <button type="button" onClick={handleTmdbSearch} disabled={isTmdbLoading || !tmdbSearchQuery} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded disabled:bg-gray-400">{isTmdbLoading ? "..." : "Go"}</button>
             </div>
-            {tmdbError && <p className="text-red-500 text-sm">{tmdbError}</p>}
             {tmdbResults.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-4 max-h-96 overflow-y-auto p-2 border-t border-gray-300 dark:border-gray-600">
                 {tmdbResults.map((result) => (
                   <div key={result.id} onClick={() => handleSelectTmdbResult(result)} className="cursor-pointer group text-center animate-fade-in">
-                    <img src={result.poster_path ? `${TMDB_IMAGE_BASE_URL}w200${result.poster_path}` : "https://via.placeholder.com/200x300.png?text=No+Image"} alt={result.title || result.name} className="rounded-md shadow-md group-hover:opacity-75 transition-opacity aspect-[2/3] object-cover w-full" />
+                    <img src={result.poster_path ? `${TMDB_IMAGE_BASE_URL}w200${result.poster_path}` : "https://via.placeholder.com/200x300"} alt={result.title || result.name} className="rounded-md shadow-md group-hover:opacity-75 transition-opacity aspect-[2/3] object-cover w-full" />
                     <p className="text-sm mt-2 font-medium text-light-text dark:text-brand-text truncate">{result.title || result.name}</p>
                   </div>
                 ))}
@@ -762,26 +761,20 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <input type="text" name="title" value={formState.title} onChange={handleInputChange} placeholder="Title" required className={inputClass} />
-            <div>
-              <label className="block text-sm font-medium text-light-text-secondary dark:text-brand-text-secondary mb-1">Poster Image</label>
-              <input type="file" accept="image/*" onChange={handleImageChange} className="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-primary/10 file:text-brand-primary hover:file:bg-brand-primary/20" />
-              {formState.posterUrl && <img src={formState.posterUrl} alt="Preview" className="mt-4 rounded-lg w-32 h-48 object-cover shadow-md" />}
-            </div>
+            <input type="file" accept="image/*" onChange={handleImageChange} className="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-primary/10 file:text-brand-primary hover:file:bg-brand-primary/20" />
+            {formState.posterUrl && <img src={formState.posterUrl} alt="Preview" className="mt-4 rounded-lg w-32 h-48 object-cover shadow-md" />}
             <textarea name="description" value={formState.description} onChange={handleInputChange} placeholder="Description" required className={`${inputClass} h-24`}></textarea>
             <input type="text" name="actors" value={formState.actors} onChange={handleInputChange} placeholder="Actors" required className={inputClass} />
             <input type="text" name="director" value={formState.director} onChange={handleInputChange} placeholder="Director" required className={inputClass} />
             <input type="text" name="producer" value={formState.producer} onChange={handleInputChange} placeholder="Producer" required className={inputClass} />
             <input type="number" name="rating" value={formState.rating || ""} onChange={handleInputChange} placeholder="Rating" step="0.1" className={inputClass} />
             <input type="text" name="trailerLink" value={formState.trailerLink || ""} onChange={handleInputChange} placeholder="Trailer Link" className={inputClass} />
-            <div>
-              <label className="block text-sm font-medium text-light-text-secondary dark:text-brand-text-secondary mb-1">Category</label>
-              <select name="category" value={formState.category} onChange={handleInputChange} className={inputClass}>
-                <option value="hollywood">Hollywood</option>
-                <option value="bollywood">Bollywood</option>
-                <option value="south-indian">South Indian</option>
-                <option value="webseries">Webseries</option>
-              </select>
-            </div>
+            <select name="category" value={formState.category} onChange={handleInputChange} className={inputClass}>
+              <option value="hollywood">Hollywood</option>
+              <option value="bollywood">Bollywood</option>
+              <option value="south-indian">South Indian</option>
+              <option value="webseries">Webseries</option>
+            </select>
 
             {formState.category === "webseries" ? (
               <fieldset className="border border-gray-300 dark:border-gray-600 p-4 rounded-md space-y-3">
@@ -792,6 +785,43 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                       <legend className="text-lg font-semibold text-light-text dark:text-brand-text">Season {season.seasonNumber}</legend>
                       <button type="button" onClick={() => removeSeason(seasonIndex)} className="text-red-500 hover:text-red-700 text-sm">Remove Season</button>
                     </div>
+
+                    {/* --- NEW: FULL SEASON FILES SECTION --- */}
+                    <div className="pl-4 border-l-2 border-brand-primary/30 ml-2 my-4">
+                      <p className="text-sm font-bold text-brand-primary mb-2">Full Season / Part Files</p>
+                      {season.fullSeasonFiles?.map((file, fIdx) => (
+                        <div key={fIdx} className="mb-4 bg-black/5 dark:bg-white/5 p-3 rounded">
+                          <div className="flex gap-2 mb-2">
+                            <input type="text" placeholder="Title (e.g. Full Season 1 Zip)" value={file.title} onChange={(e) => handleSeasonFileTitleChange(seasonIndex, fIdx, e.target.value)} className={`${inputClass} flex-grow`} />
+                            <button type="button" onClick={() => removeSeasonFile(seasonIndex, fIdx)} className="bg-red-600 p-2 rounded text-white"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg></button>
+                          </div>
+                          <div className="ml-4 mb-2">
+                            <p className="text-xs font-semibold opacity-70">Telegram Links</p>
+                            {file.telegramLinks.map((l, lIdx) => (
+                              <div key={lIdx} className="flex gap-2 mt-1">
+                                <input type="text" placeholder="Quality" value={l.quality} onChange={(e) => chgSeasonFileTG(seasonIndex, fIdx, lIdx, "quality", e.target.value)} className={`${inputClass} w-1/3`} />
+                                <input type="text" placeholder="File ID" value={l.fileId} onChange={(e) => chgSeasonFileTG(seasonIndex, fIdx, lIdx, "fileId", e.target.value)} className={`${inputClass} flex-grow`} />
+                                <button type="button" onClick={() => rmSeasonFileTG(seasonIndex, fIdx, lIdx)} className="text-red-500">x</button>
+                              </div>
+                            ))}
+                            <button type="button" onClick={() => addSeasonFileTG(seasonIndex, fIdx)} className="text-blue-500 text-xs mt-1">+ Add TG Link</button>
+                          </div>
+                          <div className="ml-4">
+                            <p className="text-xs font-semibold opacity-70">Download Links</p>
+                            {file.downloadLinks.map((l, lIdx) => (
+                              <div key={lIdx} className="flex gap-2 mt-1">
+                                <input type="text" placeholder="Quality" value={l.quality} onChange={(e) => chgSeasonFileDL(seasonIndex, fIdx, lIdx, "quality", e.target.value)} className={`${inputClass} w-1/3`} />
+                                <input type="url" placeholder="URL" value={l.url} onChange={(e) => chgSeasonFileDL(seasonIndex, fIdx, lIdx, "url", e.target.value)} className={`${inputClass} flex-grow`} />
+                                <button type="button" onClick={() => rmSeasonFileDL(seasonIndex, fIdx, lIdx)} className="text-red-500">x</button>
+                              </div>
+                            ))}
+                            <button type="button" onClick={() => addSeasonFileDL(seasonIndex, fIdx)} className="text-blue-500 text-xs mt-1">+ Add DL Link</button>
+                          </div>
+                        </div>
+                      ))}
+                      <button type="button" onClick={() => addSeasonFile(seasonIndex)} className="bg-purple-500/20 text-purple-700 dark:text-purple-300 font-bold py-1 px-3 rounded text-sm">+ Add Full Season File</button>
+                    </div>
+
                     {season.episodes.map((episode, episodeIndex) => (
                       <div key={episodeIndex} className="border-t border-gray-200 dark:border-gray-700 pt-3 space-y-2">
                         <div className="flex justify-between items-center">
@@ -863,7 +893,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       )}
 
-      {/* Content Overview */}
       <div className="mt-12">
         <h2 className="text-2xl mb-4 text-light-text dark:text-brand-text font-semibold">Content Overview</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 text-center">
@@ -876,7 +905,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </div>
 
-      {/* Manage Content Grid */}
       <div className="mt-12">
         <h2 className="text-2xl mb-4 text-light-text dark:text-brand-text font-semibold">Manage Content</h2>
         <div className="mb-4"><input type="text" placeholder="Search existing content..." value={manageSearchQuery} onChange={(e) => setManageSearchQuery(e.target.value)} className={inputClass} /></div>
@@ -890,7 +918,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </div>
 
-      {/* Manage Modal */}
       {selectedManagedMovie && (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 animate-fade-in" onClick={() => setSelectedManagedMovie(null)}>
           <div className="bg-light-card dark:bg-brand-card p-6 rounded-xl shadow-2xl w-full max-w-sm m-4 flex flex-col items-center gap-6 relative" onClick={(e) => e.stopPropagation()}>
@@ -905,7 +932,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       )}
 
-      {/* Modals for Reply/Permissions are already above in previous parts logic, just ensure closing divs match */}
       {adminReplyingTo && (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50" onClick={() => setAdminReplyingTo(null)}>
           <div className="bg-light-card dark:bg-brand-card p-6 rounded-xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
