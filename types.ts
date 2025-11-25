@@ -10,6 +10,12 @@ export interface TelegramLink {
   fileId: string;
 }
 
+export interface FullSeasonFile {
+  title: string; // e.g. "Full Season 1" or "Part 1"
+  telegramLinks: TelegramLink[];
+  downloadLinks: DownloadLink[];
+}
+
 export interface Episode {
   episodeNumber: number;
   title: string;
@@ -20,6 +26,7 @@ export interface Episode {
 export interface Season {
   seasonNumber: number;
   episodes: Episode[];
+  fullSeasonFiles?: FullSeasonFile[]; // NEW ADDITION
 }
 
 export interface Genre {
