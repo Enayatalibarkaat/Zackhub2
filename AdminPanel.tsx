@@ -75,7 +75,6 @@ interface AdminPanelProps {
   onLogout: () => void;
   currentUser: CurrentUser | null;
 }
-
 const AdminPanel: React.FC<AdminPanelProps> = ({
   movies,
   setMovies,
@@ -135,6 +134,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     }),
     [movies]
   );
+
   const hasPermission = useCallback(
     (permission: keyof AdminPermissions) => {
       if (isSuperAdmin) return true;
@@ -145,7 +145,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     },
     [currentUser, isSuperAdmin]
   );
-
   // --- DB Sync Logic ---
   const normalizeMovies = (list: any[]): Movie[] =>
     (list || []).map((m: any) => ({
@@ -163,7 +162,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       seasons: (m.seasons || []).map((s: any) => ({
         seasonNumber: s.seasonNumber,
         episodes: s.episodes || [],
-        fullSeasonFiles: s.fullSeasonFiles || [], // Added New Field
+        fullSeasonFiles: s.fullSeasonFiles || [],
       })),
       trailerLink: m.trailerLink || "",
       genres: m.genres || [],
@@ -188,7 +187,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     fetchMovies();
   }, [fetchMovies]);
 
-  // Visitor Stats
+  // --- Fetch Visitor Stats ---
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -232,7 +231,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   const handleRemoveAdmin = (username: string) => {
-    if (window.confirm(`Are you sure you want to remove the admin "${username}"?`)) {
+    if (window.confirm(`Are you sure?`)) {
       if (removeAdmin(username)) {
         setAdmins((prev) => prev.filter((a) => a.username !== username));
       } else {
@@ -240,7 +239,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       }
     }
   };
-
   const handleOpenPermissionsModal = (admin: AdminUser) => {
     setEditingPermissionsFor(admin);
     setTempPermissions(admin.permissions);
@@ -257,6 +255,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       }
     }
   };
+
   // --- Comments Logic ---
   const movieMap = useMemo(() => new Map(movies.map((m) => [m.id, m.title])), [movies]);
 
@@ -334,7 +333,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   const handleDeleteComment = async (comment: any) => {
-    if (!window.confirm("Are you sure you want to delete this comment?")) return;
+    if (!window.confirm("Are you sure?")) return;
     try {
       const res = await fetch("/.netlify/functions/deleteComment", {
         method: "POST",
@@ -343,7 +342,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       });
       const data = await res.json();
       if (data.success) {
-        alert("Comment deleted ✅");
+        alert("Deleted ✅");
         await loadAllComments();
       } else {
         alert(data.message || "Failed to delete ❌");
@@ -353,7 +352,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       alert("Server error ❌");
     }
   };
-
   // --- Form Helpers ---
   const isEditing = editingMovieId !== null;
 
@@ -401,7 +399,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       reader.readAsDataURL(file);
     }
   };
-  // --- Link Helpers ---
+
   const handleDownloadLinkChange = (index: number, field: keyof DownloadLink, value: string) => {
     const updated = formState.downloadLinks ? [...formState.downloadLinks] : [];
     if (!updated[index]) updated[index] = { quality: "", url: "" };
@@ -423,84 +421,71 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     setFormState((p) => ({ ...p, telegramLinks: [...(p.telegramLinks || []), { quality: "", fileId: "" }] }));
   const removeTelegramLink = (index: number) =>
     setFormState((p) => ({ ...p, telegramLinks: (p.telegramLinks || []).filter((_, i) => i !== index) }));
-
-  // --- Seasons & Episodes Helpers ---
+  // --- Season Handlers ---
   const addSeason = () => {
     const newSeasonNumber = formState.seasons ? formState.seasons.length + 1 : 1;
     const newSeason: Season = { seasonNumber: newSeasonNumber, episodes: [], fullSeasonFiles: [] };
     setFormState((p) => ({ ...p, seasons: [...(p.seasons || []), newSeason] }));
   };
-  const removeSeason = (seasonIndex: number) => {
-    setFormState((p) => ({
-      ...p,
-      seasons: (p.seasons || []).filter((_, i) => i !== seasonIndex),
-    }));
-  };
+  const removeSeason = (index: number) => setFormState((p) => ({ ...p, seasons: (p.seasons || []).filter((_, i) => i !== index) }));
 
-  const addEpisode = (seasonIndex: number) => {
+  // --- Episode Handlers ---
+  const addEpisode = (sIdx: number) => {
     const newSeasons = JSON.parse(JSON.stringify(formState.seasons || []));
     const newEpisode: Episode = {
-      episodeNumber: (newSeasons[seasonIndex]?.episodes?.length || 0) + 1,
+      episodeNumber: (newSeasons[sIdx].episodes.length || 0) + 1,
       title: "",
       downloadLinks: [],
       telegramLinks: [],
     };
-    newSeasons[seasonIndex].episodes.push(newEpisode);
+    newSeasons[sIdx].episodes.push(newEpisode);
     setFormState((p) => ({ ...p, seasons: newSeasons }));
   };
-  const removeEpisode = (seasonIndex: number, episodeIndex: number) => {
+  const removeEpisode = (sIdx: number, eIdx: number) => {
     const newSeasons = JSON.parse(JSON.stringify(formState.seasons || []));
-    newSeasons[seasonIndex].episodes = newSeasons[seasonIndex].episodes.filter(
-      (_: any, i: number) => i !== episodeIndex
-    );
+    newSeasons[sIdx].episodes = newSeasons[sIdx].episodes.filter((_: any, i: number) => i !== eIdx);
     setFormState((p) => ({ ...p, seasons: newSeasons }));
   };
-  const handleEpisodeChange = (
-    seasonIndex: number,
-    episodeIndex: number,
-    field: keyof Omit<Episode, "downloadLinks" | "episodeNumber" | "telegramLinks">,
-    value: string
-  ) => {
+  const handleEpisodeChange = (sIdx: number, eIdx: number, field: string, value: string) => {
     const newSeasons = JSON.parse(JSON.stringify(formState.seasons || []));
-    newSeasons[seasonIndex].episodes[episodeIndex][field] = value;
+    newSeasons[sIdx].episodes[eIdx][field] = value;
     setFormState((p) => ({ ...p, seasons: newSeasons }));
   };
-  const addEpisodeDownloadLink = (seasonIndex: number, episodeIndex: number) => {
-    const newSeasons = JSON.parse(JSON.stringify(formState.seasons || []));
-    newSeasons[seasonIndex].episodes[episodeIndex].downloadLinks.push({ quality: "", url: "" });
-    setFormState((p) => ({ ...p, seasons: newSeasons }));
+  
+  const addEpDL = (sIdx: number, eIdx: number) => {
+    const ns = JSON.parse(JSON.stringify(formState.seasons || []));
+    ns[sIdx].episodes[eIdx].downloadLinks.push({ quality: "", url: "" });
+    setFormState((p) => ({ ...p, seasons: ns }));
   };
-  const removeEpisodeDownloadLink = (seasonIndex: number, episodeIndex: number, linkIndex: number) => {
-    const newSeasons = JSON.parse(JSON.stringify(formState.seasons || []));
-    newSeasons[seasonIndex].episodes[episodeIndex].downloadLinks =
-      newSeasons[seasonIndex].episodes[episodeIndex].downloadLinks.filter((_: any, i: number) => i !== linkIndex);
-    setFormState((p) => ({ ...p, seasons: newSeasons }));
+  const rmEpDL = (sIdx: number, eIdx: number, lIdx: number) => {
+    const ns = JSON.parse(JSON.stringify(formState.seasons || []));
+    ns[sIdx].episodes[eIdx].downloadLinks = ns[sIdx].episodes[eIdx].downloadLinks.filter((_: any, i: number) => i !== lIdx);
+    setFormState((p) => ({ ...p, seasons: ns }));
   };
-  const handleEpisodeDownloadLinkChange = (seasonIndex: number, episodeIndex: number, linkIndex: number, field: keyof DownloadLink, value: string) => {
-    const newSeasons = JSON.parse(JSON.stringify(formState.seasons || []));
-    newSeasons[seasonIndex].episodes[episodeIndex].downloadLinks[linkIndex][field] = value;
-    setFormState((p) => ({ ...p, seasons: newSeasons }));
+  const chgEpDL = (sIdx: number, eIdx: number, lIdx: number, f: string, v: string) => {
+    const ns = JSON.parse(JSON.stringify(formState.seasons || []));
+    ns[sIdx].episodes[eIdx].downloadLinks[lIdx][f] = v;
+    setFormState((p) => ({ ...p, seasons: ns }));
   };
-  const addEpisodeTelegramLink = (seasonIndex: number, episodeIndex: number) => {
-    const newSeasons = JSON.parse(JSON.stringify(formState.seasons || []));
-    if (!newSeasons[seasonIndex].episodes[episodeIndex].telegramLinks) {
-      newSeasons[seasonIndex].episodes[episodeIndex].telegramLinks = [];
-    }
-    newSeasons[seasonIndex].episodes[episodeIndex].telegramLinks.push({ quality: "", fileId: "" });
-    setFormState((p) => ({ ...p, seasons: newSeasons }));
+  
+  const addEpTG = (sIdx: number, eIdx: number) => {
+    const ns = JSON.parse(JSON.stringify(formState.seasons || []));
+    if(!ns[sIdx].episodes[eIdx].telegramLinks) ns[sIdx].episodes[eIdx].telegramLinks = [];
+    ns[sIdx].episodes[eIdx].telegramLinks.push({ quality: "", fileId: "" });
+    setFormState((p) => ({ ...p, seasons: ns }));
   };
-  const removeEpisodeTelegramLink = (seasonIndex: number, episodeIndex: number, linkIndex: number) => {
-    const newSeasons = JSON.parse(JSON.stringify(formState.seasons || []));
-    newSeasons[seasonIndex].episodes[episodeIndex].telegramLinks =
-      newSeasons[seasonIndex].episodes[episodeIndex].telegramLinks.filter((_: any, i: number) => i !== linkIndex);
-    setFormState((p) => ({ ...p, seasons: newSeasons }));
+  const rmEpTG = (sIdx: number, eIdx: number, lIdx: number) => {
+    const ns = JSON.parse(JSON.stringify(formState.seasons || []));
+    ns[sIdx].episodes[eIdx].telegramLinks = ns[sIdx].episodes[eIdx].telegramLinks.filter((_: any, i: number) => i !== lIdx);
+    setFormState((p) => ({ ...p, seasons: ns }));
   };
-  const handleEpisodeTelegramLinkChange = (seasonIndex: number, episodeIndex: number, linkIndex: number, field: keyof TelegramLink, value: string) => {
-    const newSeasons = JSON.parse(JSON.stringify(formState.seasons || []));
-    newSeasons[seasonIndex].episodes[episodeIndex].telegramLinks[linkIndex][field] = value;
-    setFormState((p) => ({ ...p, seasons: newSeasons }));
+  const chgEpTG = (sIdx: number, eIdx: number, lIdx: number, f: string, v: string) => {
+    const ns = JSON.parse(JSON.stringify(formState.seasons || []));
+    ns[sIdx].episodes[eIdx].telegramLinks[lIdx][f] = v;
+    setFormState((p) => ({ ...p, seasons: ns }));
   };
-  // --- FULL SEASON FILE HELPERS (NEW) ---
+  
+  // --- Full Season File Handlers ---
   const addSeasonFile = (sIdx: number) => {
     const ns = JSON.parse(JSON.stringify(formState.seasons || []));
     if (!ns[sIdx].fullSeasonFiles) ns[sIdx].fullSeasonFiles = [];
@@ -517,7 +502,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     ns[sIdx].fullSeasonFiles[fIdx].title = value;
     setFormState((p) => ({ ...p, seasons: ns }));
   };
-  // Full Season TG Links
   const addSeasonFileTG = (sIdx: number, fIdx: number) => {
     const ns = JSON.parse(JSON.stringify(formState.seasons || []));
     ns[sIdx].fullSeasonFiles[fIdx].telegramLinks.push({ quality: "", fileId: "" });
@@ -533,7 +517,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     ns[sIdx].fullSeasonFiles[fIdx].telegramLinks[lIdx][f] = v;
     setFormState((p) => ({ ...p, seasons: ns }));
   };
-  // Full Season DL Links
   const addSeasonFileDL = (sIdx: number, fIdx: number) => {
     const ns = JSON.parse(JSON.stringify(formState.seasons || []));
     ns[sIdx].fullSeasonFiles[fIdx].downloadLinks.push({ quality: "", url: "" });
@@ -549,7 +532,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     ns[sIdx].fullSeasonFiles[fIdx].downloadLinks[lIdx][f] = v;
     setFormState((p) => ({ ...p, seasons: ns }));
   };
-
   // --- TMDB Search Logic ---
   const handleTmdbSearch = async () => {
     if (!tmdbSearchQuery.trim()) return;
@@ -611,6 +593,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       setIsTmdbLoading(false);
     }
   };
+
   // --- CRUD ---
   const saveNewMovie = async () => {
     const payload = { ...formState, rating: Number(formState.rating) || 0, runtime: Number(formState.runtime) || 0, category: formState.category as MovieCategory };
@@ -663,7 +646,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const inputClass = "w-full p-2 bg-light-bg dark:bg-brand-bg rounded border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-primary transition-colors text-light-text dark:text-brand-text";
   const commentsToDisplay = searchedUsername ? filteredComments : allComments.slice(0, 50);
   const filteredManagedMovies = useMemo(() => movies.filter((movie) => movie.title.toLowerCase().includes(manageSearchQuery.toLowerCase())), [movies, manageSearchQuery]);
-
+  /** ---------------- Render ---------------- */
   return (
     <div className="container mx-auto p-4 animate-fade-in">
       <div className="flex justify-between items-center mb-6">
@@ -676,7 +659,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         <button onClick={onLogout} className="bg-gray-500 dark:bg-gray-600 hover:bg-gray-600 dark:hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition-colors duration-300">Logout</button>
       </div>
 
-      {/* --- VISITOR STATS --- */}
+      {/* Stats */}
       <div className="mb-8">
         <h2 className="text-2xl mb-4 text-light-text dark:text-brand-text font-semibold">Visitor Insights</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -685,31 +668,17 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </div>
 
+      {/* Comment Sidebar */}
       {hasPermission("canManageComments") && (
         <>
           <div className={`fixed inset-0 bg-black z-40 transition-opacity duration-300 ${isCommentSidebarOpen ? "bg-opacity-60" : "bg-opacity-0 pointer-events-none"}`} onClick={() => setIsCommentSidebarOpen(false)} />
           <div ref={sidebarRef} className={`fixed top-0 right-0 h-full bg-light-sidebar dark:bg-brand-sidebar shadow-2xl z-50 flex flex-col transform transition-transform duration-300 ease-in-out w-[90vw] md:w-[50vw] ${isCommentSidebarOpen ? "translate-x-0" : "translate-x-full"}`} role="dialog">
-            <div onMouseDown={handleMouseDownOnResize} className="absolute top-0 -left-1 w-2 h-full cursor-col-resize group z-10 hidden md:block"><div className="w-full h-full bg-transparent group-hover:bg-brand-primary/50 transition-colors duration-200" /></div>
             <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
               <h2 className="text-xl font-bold text-light-text dark:text-brand-text">Comments</h2>
               <button onClick={() => setIsCommentSidebarOpen(false)} className="p-2 rounded-full text-light-text-secondary hover:bg-black/5 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
             </div>
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <form onSubmit={handleCommentSearch} className="flex gap-2">
-                <input type="text" placeholder="Search username..." value={commentSearch} onChange={(e) => setCommentSearch(e.target.value)} className="w-full p-2 bg-light-card dark:bg-brand-card rounded border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-primary" />
-                <button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">Search</button>
-              </form>
-            </div>
-            <div className="flex-grow p-4 space-y-4 overflow-y-auto">
-              {commentsToDisplay.length > 0 ? commentsToDisplay.map(comment => (
-                <div key={comment.id} className="p-3 bg-light-card dark:bg-brand-card rounded-lg shadow-sm">
-                  <div className="flex justify-between items-center text-xs"><p className="font-bold text-light-text dark:text-brand-text">{comment.name}</p><p className="text-light-text-secondary dark:text-brand-text-secondary">{comment.createdAt ? new Date(comment.createdAt).toLocaleString() : "Unknown"}</p></div>
-                  <p className="text-xs text-light-text-secondary mt-1">On: <span className="font-semibold text-brand-primary">{comment.movieTitle}</span></p>
-                  <p className="mt-2 text-sm text-light-text dark:text-brand-text">{comment.text}</p>
-                  <div className="text-right mt-2 flex justify-end items-center gap-4"><button onClick={() => setAdminReplyingTo(comment)} className="text-xs font-bold text-blue-500 hover:underline">Reply</button><button onClick={() => handleDeleteComment(comment)} className="text-xs font-bold text-red-500 hover:underline">Delete</button></div>
-                </div>
-              )) : (<p className="text-center text-light-text-secondary py-4">No comments.</p>)}
-            </div>
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700"><form onSubmit={handleCommentSearch} className="flex gap-2"><input type="text" placeholder="Search username..." value={commentSearch} onChange={(e) => setCommentSearch(e.target.value)} className="w-full p-2 bg-light-card dark:bg-brand-card rounded border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-primary" /><button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">Search</button></form></div>
+            <div className="flex-grow p-4 space-y-4 overflow-y-auto">{commentsToDisplay.length > 0 ? commentsToDisplay.map(comment => (<div key={comment.id} className="p-3 bg-light-card dark:bg-brand-card rounded-lg shadow-sm"><div className="flex justify-between items-center text-xs"><p className="font-bold text-light-text dark:text-brand-text">{comment.name}</p><p className="text-light-text-secondary dark:text-brand-text-secondary">{comment.createdAt ? new Date(comment.createdAt).toLocaleString() : "Unknown"}</p></div><p className="text-xs text-light-text-secondary mt-1">On: <span className="font-semibold text-brand-primary">{comment.movieTitle}</span></p><p className="mt-2 text-sm text-light-text dark:text-brand-text">{comment.text}</p><div className="text-right mt-2 flex justify-end items-center gap-4"><button onClick={() => setAdminReplyingTo(comment)} className="text-xs font-bold text-blue-500 hover:underline">Reply</button><button onClick={() => handleDeleteComment(comment)} className="text-xs font-bold text-red-500 hover:underline">Delete</button></div></div>)) : (<p className="text-center text-light-text-secondary py-4">No comments.</p>)}</div>
           </div>
         </>
       )}
@@ -718,27 +687,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         <div className="bg-light-card dark:bg-brand-card p-6 rounded-lg mb-8 shadow-md">
           <h2 className="text-2xl mb-4 text-light-text dark:text-brand-text font-semibold">Admins</h2>
           <form onSubmit={handleAddAdmin} className="border border-gray-300 dark:border-gray-600 p-4 rounded-md mb-6 space-y-3 bg-light-bg/50 dark:bg-brand-bg/50">
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input type="text" placeholder="Username" value={newAdminUsername} onChange={(e) => setNewAdminUsername(e.target.value)} className={inputClass} />
-              <input type="password" placeholder="Password" value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)} className={inputClass} />
-              <button type="submit" className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Add</button>
-            </div>
-            {adminFormError && <p className="text-red-500 text-sm">{adminFormError}</p>}
-            {adminFormSuccess && <p className="text-green-500 text-sm">{adminFormSuccess}</p>}
+            <div className="flex flex-col sm:flex-row gap-2"><input type="text" placeholder="Username" value={newAdminUsername} onChange={(e) => setNewAdminUsername(e.target.value)} className={inputClass} /><input type="password" placeholder="Password" value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)} className={inputClass} /><button type="submit" className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Add</button></div>
+            {adminFormError && <p className="text-red-500 text-sm">{adminFormError}</p>}{adminFormSuccess && <p className="text-green-500 text-sm">{adminFormSuccess}</p>}
           </form>
-          <div>
-            {admins.length > 0 ? (<ul className="space-y-2">{admins.map(admin => (
-              <li key={admin.username} className="flex flex-col sm:flex-row justify-between items-center p-3 bg-light-bg dark:bg-brand-bg rounded-md gap-2">
-                <span className="font-medium text-light-text dark:text-brand-text">{admin.username}</span>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => handleOpenPermissionsModal(admin)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-md text-sm">Perms</button>
-                  <button onClick={() => handleRemoveAdmin(admin.username)} className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-md text-sm">Del</button>
-                </div>
-              </li>
-            ))}</ul>) : (<p className="text-light-text-secondary text-center py-2">No other admins.</p>)}
-          </div>
+          <div>{admins.length > 0 ? (<ul className="space-y-2">{admins.map(admin => (<li key={admin.username} className="flex flex-col sm:flex-row justify-between items-center p-3 bg-light-bg dark:bg-brand-bg rounded-md gap-2"><span className="font-medium text-light-text dark:text-brand-text">{admin.username}</span><div className="flex items-center gap-2"><button onClick={() => handleOpenPermissionsModal(admin)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-md text-sm">Perms</button><button onClick={() => handleRemoveAdmin(admin.username)} className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-md text-sm">Del</button></div></li>))}</ul>) : (<p className="text-light-text-secondary text-center py-2">No other admins.</p>)}</div>
         </div>
       )}
+
       {hasPermission("canAddContent") && (
         <div className="bg-light-card dark:bg-brand-card p-6 rounded-lg mb-8 shadow-md">
           <h2 className="text-2xl mb-4 text-light-text dark:text-brand-text font-semibold">{isEditing ? `Edit "${formState.title}"` : "Add Content"}</h2>
@@ -786,7 +741,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                       <button type="button" onClick={() => removeSeason(seasonIndex)} className="text-red-500 hover:text-red-700 text-sm">Remove Season</button>
                     </div>
 
-                    {/* --- NEW: FULL SEASON FILES SECTION --- */}
+                    {/* Full Season Files */}
                     <div className="pl-4 border-l-2 border-brand-primary/30 ml-2 my-4">
                       <p className="text-sm font-bold text-brand-primary mb-2">Full Season / Part Files</p>
                       {season.fullSeasonFiles?.map((file, fIdx) => (
