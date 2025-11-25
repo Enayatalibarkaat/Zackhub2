@@ -18,13 +18,11 @@ const InfoPill: React.FC<{ icon: React.ReactNode; children: React.ReactNode }> =
         <span>{children}</span>
     </span>
 );
-
 const GenrePill: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <span className="text-xs font-semibold text-brand-primary bg-brand-primary/10 rounded-full px-3 py-1 [text-shadow:0_0_6px_theme(colors.brand-primary/80)]">
         {children}
     </span>
 );
-
 
 const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, isLiveEditMode, onUpdateField }) => {
   const [selectedEpisode, setSelectedEpisode] = useState<Episode | null>(null);
@@ -38,7 +36,6 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
     if (mins > 0) result += `${mins}m`;
     return result.trim();
   };
-  
   const getTotalEpisodes = () => {
     if (!movie.seasons) return 0;
     return movie.seasons.reduce((total, season) => total + season.episodes.length, 0);
@@ -91,7 +88,7 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
                   className="w-full flex items-center justify-center gap-2 text-center bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-[0_0_15px_rgba(252,71,71,0.6)]"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
                   </svg>
                   <span>Download {link.quality}</span>
                 </a>
@@ -100,7 +97,7 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
           </div>
         </div>
       );
-  };
+};
 
   const hasTelegramLink = movie.telegramLinks && movie.telegramLinks.length > 0;
   const hasDirectLinks = movie.downloadLinks && movie.downloadLinks.length > 0;
@@ -257,6 +254,35 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
                             {movie.seasons.map(season => (
                                 <div key={season.seasonNumber}>
                                     <h3 className="text-2xl font-bold text-brand-primary mb-3 [text-shadow:0_0_8px_theme(colors.brand-primary)]">Season {season.seasonNumber}</h3>
+                                    
+                                    {/* --- NEW: FULL SEASON FILES SECTION --- */}
+                                    {season.fullSeasonFiles && season.fullSeasonFiles.length > 0 && (
+                                      <div className="mb-4 grid gap-3 grid-cols-1 md:grid-cols-2">
+                                        {season.fullSeasonFiles.map((file, fIdx) => (
+                                          <div key={fIdx} className="bg-light-card dark:bg-brand-card p-4 rounded-lg border border-brand-primary/30 shadow-sm hover:shadow-md transition-shadow">
+                                            <h4 className="font-bold text-lg text-light-text dark:text-brand-text mb-3 flex items-center gap-2">
+                                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-brand-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                                              {file.title || "Full Season File"}
+                                            </h4>
+                                            <div className="flex flex-col gap-2">
+                                              {file.telegramLinks.map((link, lIdx) => (
+                                                <a key={lIdx} href={`https://t.me/Hubb_for_You_1bot?start=${link.fileId}`} target="_blank" rel="noopener noreferrer" className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-bold py-2 px-3 rounded transition-all transform hover:scale-[1.02]">
+                                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M9.78 18.65l.28-4.23l7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3L3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.57c-.28 1.1-.86 1.32-1.7.82l-4.7-3.45l-2.4 2.3c-.27.27-.5.39-.83.39.35-.39.42-.64.48-.92z"/></svg>
+                                                  <span>Telegram {link.quality}</span>
+                                                </a>
+                                              ))}
+                                              {file.downloadLinks.map((link, lIdx) => (
+                                                <a key={lIdx} href={link.url} target="_blank" rel="noopener noreferrer" className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-2 px-3 rounded transition-all transform hover:scale-[1.02]">
+                                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                                                  <span>Download {link.quality}</span>
+                                                </a>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
                                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                                         {season.episodes.map(episode => (
                                             <button 
@@ -286,7 +312,7 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
                         {hasTelegramLink || hasDirectLinks ? (
                             <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6">
                                 {hasTelegramLink && movie.telegramLinks!.map((link, index) => (
-                                     <a
+                                    <a
                                         key={`tg-${index}`}
                                         href={`https://t.me/Hubb_for_You_1bot?start=${link.fileId}`}
                                         target="_blank"
