@@ -26,6 +26,16 @@ const GenrePill: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, isLiveEditMode, onUpdateField }) => {
   const [selectedEpisode, setSelectedEpisode] = useState<Episode | null>(null);
+    // --- SEO: Update Tab Title ---
+  React.useEffect(() => {
+    if (movie) {
+      document.title = `${movie.title} - Download Free | Zackhub`;
+    }
+    return () => {
+      document.title = "Zackhub - Download Movies";
+    };
+  }, [movie]);
+  
   
   const formatRuntime = (minutes?: number) => {
     if (!minutes || minutes <= 0) return null;
