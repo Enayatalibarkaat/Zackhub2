@@ -39,7 +39,7 @@ const DisclaimerModal: React.FC<DisclaimerModalProps> = ({ isOpen, onClose }) =>
                 <strong>Copyright Compliance:</strong> We respect the intellectual property rights of others and operate in compliance with the Digital Millennium Copyright Act (DMCA). We are not responsible for the content of external websites. If you believe that your copyrighted work has been infringed upon, we urge you to contact the hosting provider directly.
             </p>
             <p>
-                <strong>DMCA Takedown Notice Procedure:</strong> For copyright holders, if you wish to request the removal of a link from our index, please send a proper notification. Your request must include:
+                <strong>DMCA Takedown Notice Procedure:</strong> For copyright holders, if you wish to request the removal of a link from our index, please send a proper notification to our DMCA Agent at: <span className="font-bold text-brand-primary">zzack2355@gmail.com</span>. Your request must include:
             </p>
             <ul className="list-disc list-inside space-y-2 pl-4">
                 <li>Identification of the copyrighted work you claim has been infringed.</li>
