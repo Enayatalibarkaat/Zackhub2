@@ -31,6 +31,11 @@ const App: React.FC = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
+    // --- FIX: Scroll to Top on Route Change ---
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+  
 
   // --- Auth Check ---
   const canUserLiveEdit = useMemo(() => {
