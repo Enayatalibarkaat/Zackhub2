@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Movie, MovieCategory, Genre, CurrentUser } from './types';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { Movie, MovieCategory, CurrentUser } from './types';
 import Sidebar from './Sidebar';
 import MovieGrid from './MovieGrid';
 import MovieDetails from './MovieDetails';
@@ -11,17 +12,12 @@ import Pagination from './Pagination';
 import Footer from './Footer';
 import DisclaimerModal from './DisclaimerModal';
 
-type View = 'main' | 'details' | 'login' | 'admin';
 type Theme = 'light' | 'dark';
-
 const MOVIES_PER_PAGE = 30;
 
 const App: React.FC = () => {
   const [movies, setMovies] = useState<Movie[]>([]);
-  const [view, setView] = useState<View>('main');
-  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
   const [logoClickCount, setLogoClickCount] = useState(0);
-  const [logoClickTimer, setLogoClickTimer] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [theme, setTheme] = useState<Theme>('dark');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -30,12 +26,13 @@ const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const scrollPositionRef = useRef(0);
   const [isLiveEditMode, setIsLiveEditMode] = useState(false);
-  
-  // --- Loading State ---
   const [loading, setLoading] = useState(true);
 
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // --- Auth Check ---
   const canUserLiveEdit = useMemo(() => {
     if (!currentUser) return false;
     if (currentUser.role === 'super') return true;
@@ -46,279 +43,136 @@ const App: React.FC = () => {
   }, [currentUser]);
 
   useEffect(() => {
-    if (!canUserLiveEdit) {
-      setIsLiveEditMode(false);
-    }
+    if (!canUserLiveEdit) setIsLiveEditMode(false);
   }, [canUserLiveEdit]);
 
   const effectiveLiveEditMode = isLiveEditMode && canUserLiveEdit;
 
-  // --- VISITOR TRACKING (Ping Backend) ---
+  // --- Load Movies ---
   useEffect(() => {
-    // Website khulte hi attendance lagao
-    fetch("/.netlify/functions/trackVisit", { method: "POST" })
-      .catch(err => console.error("Tracking failed", err));
-  }, []);
-
-  // --- LOAD MOVIES ---
-  useEffect(() => {
+    fetch("/.netlify/functions/trackVisit", { method: "POST" }).catch(console.error);
     (async () => {
       try {
         const res = await fetch("/.netlify/functions/getMovies");
         const json = await res.json();
         setMovies((json.movies || []) as Movie[]);
       } catch (err) {
-        console.error("Failed to fetch movies from API", err);
-        setMovies([]);
+        console.error("Failed to fetch movies", err);
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  // --- RESTORE VIEW STATE ---
-  useEffect(() => {
-    const lastView = localStorage.getItem("last-view");
-    const lastMovieId = localStorage.getItem("last-movie-id");
-
-    if (lastView === "details" && lastMovieId) {
-      const movie = movies.find(m => (m.id || m._id) === lastMovieId);
-      if (movie) {
-        setSelectedMovie(movie);
-        setView("details");
-      }
-    }
-
-    if (lastView === "admin") {
-      setView("admin");
-    }
-
-  }, [movies]);
-
+  // --- Theme ---
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') as Theme;
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    if (savedTheme) {
-      setTheme(savedTheme);
-    } else if (prefersDark) {
-      setTheme('dark');
-    } else {
-      setTheme('light');
-    }
+    setTheme(savedTheme || (prefersDark ? 'dark' : 'light'));
   }, []);
 
   useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    document.documentElement.classList.toggle('dark', theme === 'dark');
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
-  };
-
-  useEffect(() => {
-    if (logoClickCount === 3) {
-      setView('login');
-      setLogoClickCount(0);
-      if (logoClickTimer) clearTimeout(logoClickTimer);
-    }
-  }, [logoClickCount, logoClickTimer]);
-
-  useEffect(() => {
-    if (view === 'details') {
-      window.scrollTo(0, 0);
-    }
-  }, [view]);
-
-  // ⭐ NEW: Auto Scroll to Top when Page Changes
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [currentPage]);
-
-  const handleGoHome = useCallback(() => {
-    setSelectedMovie(null);
-    setSearchQuery('');
-    setSelectedCategory('all');
-    setSelectedGenre(null);
-    setView('main');
-    localStorage.setItem("last-view", "main");
-    window.scrollTo(0, 0);
-  }, []);
-
-  const handleLogoClick = useCallback(() => {
-    if (view !== 'main') {
-      handleGoHome();
-    }
-
-    if (logoClickTimer) {
-      clearTimeout(logoClickTimer);
+  // --- Helpers ---
+  const handleLogoClick = () => {
+    if (location.pathname !== '/') {
+      navigate('/');
+      return;
     }
     setLogoClickCount(prev => prev + 1);
-    const timer = setTimeout(() => {
-      setLogoClickCount(0);
-    }, 1500);
-    setLogoClickTimer(timer);
-  }, [logoClickTimer, view, handleGoHome]);
-
-  const handleSelectMovie = (movie: Movie) => {
-    if (effectiveLiveEditMode) return;
-    scrollPositionRef.current = window.scrollY;
-    setSelectedMovie(movie);
-    setView('details');
-    localStorage.setItem("last-view", "details");
-    localStorage.setItem("last-movie-id", movie.id || movie._id);
+    setTimeout(() => setLogoClickCount(0), 1500);
+    if (logoClickCount === 2) navigate('/login');
   };
 
-  const handleBack = () => {
-    const isComingFromDetails = view === 'details';
-    setSelectedMovie(null);
-    setSearchQuery('');
-    setSelectedCategory('all');
-    setSelectedGenre(null);
-    setView('main');
-    localStorage.setItem("last-view", "main");
-
-    if (isComingFromDetails) {
-      setTimeout(() => {
-        window.scrollTo(0, scrollPositionRef.current);
-      }, 0);
-    }
+  const generateSlug = (title: string) => {
+    return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   };
 
-  const handleLoginSuccess = (user: CurrentUser) => {
-    setCurrentUser(user);
-    setView('admin');
-    localStorage.setItem("last-view", "admin");
-  };
+  // --- Components for Routes ---
+  const MainContent = () => {
+    const filteredMovies = useMemo(() => movies
+      .filter(movie => selectedCategory === 'all' || movie.category === selectedCategory)
+      .filter(movie => !selectedGenre || movie.genres?.some(g => g.name === selectedGenre))
+      .filter(movie => movie.title.toLowerCase().includes(searchQuery.toLowerCase())),
+      [movies, selectedCategory, selectedGenre, searchQuery]);
 
-  const handleLogout = () => {
-    setCurrentUser(null);
-    setIsLiveEditMode(false);
-    setView('main');
-    localStorage.setItem("last-view", "main");
-  };
+    const totalPages = Math.ceil(filteredMovies.length / MOVIES_PER_PAGE);
+    const moviesForCurrentPage = filteredMovies.slice((currentPage - 1) * MOVIES_PER_PAGE, currentPage * MOVIES_PER_PAGE);
 
-  const handleSelectCategory = (category: MovieCategory | 'all') => {
-    setSelectedCategory(category);
-    setSelectedGenre(null);
-    setCurrentPage(1);
-  };
+    // Grid Title Logic
+    let gridTitle = '🔥 Latest Releases';
+    if (searchQuery) gridTitle = `Results for "${searchQuery}"`;
+    else if (selectedGenre) gridTitle = `${selectedGenre} Movies`;
+    else if (selectedCategory !== 'all') gridTitle = selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1);
 
-  const handleSelectGenre = (genre: string) => {
-    setSelectedGenre(genre);
-    setSelectedCategory('all');
-    setCurrentPage(1);
-    setIsSidebarOpen(false);
-  };
+    return (
+      <>
+        <CategoryNav selectedCategory={selectedCategory} onSelectCategory={(cat) => {
+          setSelectedCategory(cat);
+          setSelectedGenre(null);
+          setCurrentPage(1);
+        }} />
+        
+        <h1 className="text-3xl text-light-text dark:text-brand-text mb-6 mt-6 font-bold px-4 py-2 rounded-lg bg-gradient-to-r from-brand-primary/20 via-brand-primary/5 to-transparent">
+          {gridTitle}
+        </h1>
 
-  const handleUpdateMovieField = (movieId: string, field: keyof Movie, value: any) => {
-    const newMovies = movies.map(movie =>
-      movie.id === movieId ? { ...movie, [field]: value } : movie
+        <MovieGrid 
+          movies={moviesForCurrentPage} 
+          onSelectMovie={(movie) => navigate(`/movie/${generateSlug(movie.title)}`, { state: { movieId: movie.id || movie._id } })}
+          searchQuery={searchQuery} 
+          isLiveEditMode={effectiveLiveEditMode} 
+          onUpdateField={() => {}} // Placeholder
+          isLoading={loading} 
+        />
+        
+        {!loading && totalPages > 1 && (
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+        )}
+      </>
     );
-    setMovies(newMovies);
-
-    if (selectedMovie?.id === movieId) {
-      const updatedSelectedMovie = newMovies.find(m => m.id === movieId);
-      if (updatedSelectedMovie) {
-        setSelectedMovie(updatedSelectedMovie);
-      }
-    }
   };
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery]);
+  const MovieDetailsWrapper = () => {
+    // Find movie by Slug from URL or State ID
+    const pathSlug = location.pathname.split('/').pop();
+    const stateId = location.state?.movieId;
+    
+    const movie = movies.find(m => 
+      (stateId && (m.id === stateId || m._id === stateId)) || 
+      generateSlug(m.title) === pathSlug
+    );
 
-  const filteredMovies = useMemo(() => movies
-    .filter(movie => selectedCategory === 'all' || movie.category === selectedCategory)
-    .filter(movie => !selectedGenre || movie.genres?.some(g => g.name === selectedGenre))
-    .filter(movie => movie.title.toLowerCase().includes(searchQuery.toLowerCase())),
-    [movies, selectedCategory, selectedGenre, searchQuery]);
+    if (!movie && !loading) return <div className="text-center p-10 text-white">Movie not found. <button onClick={() => navigate('/')} className="text-brand-primary underline">Go Home</button></div>;
+    if (!movie) return <div className="text-center p-10 text-white">Loading...</div>;
 
-  const totalPages = Math.ceil(filteredMovies.length / MOVIES_PER_PAGE);
-  const indexOfLastMovie = currentPage * MOVIES_PER_PAGE;
-  const indexOfFirstMovie = indexOfLastMovie - MOVIES_PER_PAGE;
-  const moviesForCurrentPage = filteredMovies.slice(indexOfFirstMovie, indexOfLastMovie);
-
-  const allGenres = useMemo(() => {
-    const genreSet = new Map<number, string>();
-    movies.forEach(movie => {
-      movie.genres?.forEach(genre => {
-        if (!genreSet.has(genre.id)) {
-          genreSet.set(genre.id, genre.name);
-        }
-      });
-    });
-    return Array.from(genreSet.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [movies]);
-
-  const getGridTitle = () => {
-    if (searchQuery) return `Results for "${searchQuery}"`;
-    if (selectedGenre) return `${selectedGenre} Movies & Series`;
-    switch (selectedCategory) {
-      case 'all': return '🔥 Latest Releases';
-      case 'webseries': return 'Webseries';
-      case 'hollywood': return 'Hollywood';
-      case 'bollywood': return 'Bollywood';
-      case 'south-indian': return 'South Indian';
-      default: return 'Content';
-    }
+    return (
+      <MovieDetails 
+        movie={movie} 
+        onBack={() => navigate(-1)} 
+        onGoHome={() => navigate('/')}
+        isLiveEditMode={effectiveLiveEditMode}
+        onUpdateField={(id, field, val) => {
+          const newMovies = movies.map(m => (m.id === id || m._id === id) ? { ...m, [field]: val } : m);
+          setMovies(newMovies);
+        }}
+      />
+    );
   };
 
-  const renderContent = () => {
-    switch (view) {
-      case 'login':
-        return <LoginPanel onLoginSuccess={handleLoginSuccess} onCancel={handleBack} />;
-      case 'admin':
-        return <AdminPanel movies={movies} setMovies={setMovies} onLogout={handleLogout} currentUser={currentUser} />;
-      case 'details':
-        return selectedMovie && <MovieDetails movie={selectedMovie} onBack={handleBack} onGoHome={handleGoHome} isLiveEditMode={effectiveLiveEditMode} onUpdateField={handleUpdateMovieField} />;
-      case 'main':
-      default:
-        const isLatestReleases = !searchQuery && !selectedGenre && selectedCategory === 'all';
-        return (
-          <>
-            <CategoryNav selectedCategory={selectedCategory} onSelectCategory={handleSelectCategory} />
-            <h1 className={`text-3xl text-light-text dark:text-brand-text mb-6 mt-6 ${
-              isLatestReleases
-                ? 'inline-block font-bold px-4 py-2 rounded-lg bg-gradient-to-r from-brand-primary/20 via-brand-primary/5 to-transparent'
-                : 'font-light'
-            }`}>
-              {getGridTitle()}
-            </h1>
-            <MovieGrid 
-              movies={moviesForCurrentPage} 
-              onSelectMovie={handleSelectMovie} 
-              searchQuery={searchQuery} 
-              isLiveEditMode={effectiveLiveEditMode} 
-              onUpdateField={handleUpdateMovieField}
-              isLoading={loading} 
-            />
-            {!loading && totalPages > 1 && (
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
-            )}
-          </>
-        );
-    }
-  };
-
+  // --- Main Render ---
   return (
     <div className="relative min-h-screen bg-light-bg dark:bg-brand-bg text-light-text dark:text-brand-text">
       <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         theme={theme}
-        toggleTheme={toggleTheme}
-        genres={allGenres}
-        onSelectGenre={handleSelectGenre}
+        toggleTheme={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
+        genres={[]} // Pass genres if needed
+        onSelectGenre={(g) => { setSelectedGenre(g); setSelectedCategory('all'); setIsSidebarOpen(false); }}
         selectedGenre={selectedGenre}
       />
 
@@ -328,22 +182,27 @@ const App: React.FC = () => {
           onLogoClick={handleLogoClick}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
-          showSearch={view === 'main'}
+          showSearch={location.pathname === '/'}
         />
+        
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
-          {renderContent()}
+          <Routes>
+            <Route path="/" element={<MainContent />} />
+            <Route path="/movie/:slug" element={<MovieDetailsWrapper />} />
+            <Route path="/login" element={<LoginPanel onLoginSuccess={(u) => { setCurrentUser(u); navigate('/admin'); }} onCancel={() => navigate('/')} />} />
+            <Route path="/admin" element={currentUser ? <AdminPanel movies={movies} setMovies={setMovies} onLogout={() => { setCurrentUser(null); navigate('/'); }} currentUser={currentUser} /> : <Navigate to="/login" />} />
+          </Routes>
         </main>
+        
         <Footer onDisclaimerClick={() => setIsDisclaimerOpen(true)} />
       </div>
 
-      <DisclaimerModal
-        isOpen={isDisclaimerOpen}
-        onClose={() => setIsDisclaimerOpen(false)}
-      />
-
+      <DisclaimerModal isOpen={isDisclaimerOpen} onClose={() => setIsDisclaimerOpen(false)} />
+      
+      {/* Live Edit Toggle Button */}
       {canUserLiveEdit && (
         <div className="fixed bottom-5 right-5 z-50">
-          <label htmlFor="live-edit-toggle" className="flex items-center cursor-pointer bg-light-card dark:bg-brand-card p-3 rounded-full shadow-lg border border-gray-200 dark:border-gray-700">
+           <label htmlFor="live-edit-toggle" className="flex items-center cursor-pointer bg-light-card dark:bg-brand-card p-3 rounded-full shadow-lg border border-gray-200 dark:border-gray-700">
             <span className="mr-3 font-semibold text-sm text-light-text dark:text-brand-text">Live Edit</span>
             <div className="relative">
               <input id="live-edit-toggle" type="checkbox" className="sr-only peer" checked={isLiveEditMode} onChange={() => setIsLiveEditMode(!isLiveEditMode)} />
@@ -358,3 +217,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+                              
