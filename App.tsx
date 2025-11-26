@@ -31,11 +31,11 @@ const App: React.FC = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-    // --- FIX: Scroll to Top on Route Change ---
+
+  // --- FIX: Scroll to Top on Route Change ---
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [location.pathname]);
-  
 
   // --- Auth Check ---
   const canUserLiveEdit = useMemo(() => {
@@ -81,6 +81,21 @@ const App: React.FC = () => {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // --- Calculate Genres from Movies (Ye wapas add kiya hai) ---
+  const allGenres = useMemo(() => {
+    const genreSet = new Map<number, string>();
+    movies.forEach(movie => {
+      movie.genres?.forEach(genre => {
+        if (!genreSet.has(genre.id)) {
+          genreSet.set(genre.id, genre.name);
+        }
+      });
+    });
+    return Array.from(genreSet.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [movies]);
+
   // --- Helpers ---
   const handleLogoClick = () => {
     if (location.pathname !== '/') {
@@ -95,8 +110,7 @@ const App: React.FC = () => {
   const generateSlug = (title: string) => {
     return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   };
-
-  // --- Components for Routes ---
+    // --- Components for Routes ---
   const MainContent = () => {
     const filteredMovies = useMemo(() => movies
       .filter(movie => selectedCategory === 'all' || movie.category === selectedCategory)
@@ -176,7 +190,7 @@ const App: React.FC = () => {
         onClose={() => setIsSidebarOpen(false)}
         theme={theme}
         toggleTheme={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
-        genres={[]} // Pass genres if needed
+        genres={allGenres} // ⭐ Ye line fix kar di hai
         onSelectGenre={(g) => { setSelectedGenre(g); setSelectedCategory('all'); setIsSidebarOpen(false); }}
         selectedGenre={selectedGenre}
       />
@@ -222,4 +236,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-                              
