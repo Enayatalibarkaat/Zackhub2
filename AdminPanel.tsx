@@ -47,6 +47,7 @@ const initialFormState: Omit<Movie, "id"> = {
   runtime: 0,
   tagline: "",
   backdropUrl: "",
+  isRecommended: false,
 };
 
 /** ---------- Helper UI component ---------- */
@@ -75,7 +76,6 @@ interface AdminPanelProps {
   onLogout: () => void;
   currentUser: CurrentUser | null;
 }
-
 const AdminPanel: React.FC<AdminPanelProps> = ({
   movies,
   setMovies,
@@ -91,11 +91,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const [tmdbResults, setTmdbResults] = useState<TmdbSearchResult[]>([]);
   const [isTmdbLoading, setIsTmdbLoading] = useState(false);
   const [tmdbError, setTmdbError] = useState<string | null>(null);
-
   // manage list
   const [manageSearchQuery, setManageSearchQuery] = useState("");
   const [selectedManagedMovie, setSelectedManagedMovie] = useState<Movie | null>(null);
-
   // comments
   const [isCommentSidebarOpen, setIsCommentSidebarOpen] = useState(false);
   const [allComments, setAllComments] = useState<
@@ -111,6 +109,26 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   >(null);
   const [adminReplyText, setAdminReplyText] = useState("");
 
+  // --- NEW: Requests Logic ---
+  const [isRequestSidebarOpen, setIsRequestSidebarOpen] = useState(false);
+  const [requests, setRequests] = useState<any[]>([]);
+
+  const loadRequests = async () => {
+    try {
+      const res = await fetch("/.netlify/functions/manageRequests");
+      const data = await res.json();
+      setRequests(data.requests || []);
+    } catch (err) {
+      console.error("Failed to load requests");
+    }
+  };
+
+  useEffect(() => {
+    if (isRequestSidebarOpen) {
+      loadRequests();
+    }
+  }, [isRequestSidebarOpen]);
+
   // admins
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [newAdminUsername, setNewAdminUsername] = useState("");
@@ -119,10 +137,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const [adminFormSuccess, setAdminFormSuccess] = useState("");
   const [editingPermissionsFor, setEditingPermissionsFor] = useState<AdminUser | null>(null);
   const [tempPermissions, setTempPermissions] = useState<AdminPermissions | null>(null);
-
   // Visitor Stats
   const [visitStats, setVisitStats] = useState({ today: 0, total: 0 });
-
   // UI helpers
   const isSuperAdmin = currentUser?.role === "super";
   const stats = useMemo(
@@ -135,7 +151,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     }),
     [movies]
   );
-  const hasPermission = useCallback(
+    const hasPermission = useCallback(
     (permission: keyof AdminPermissions) => {
       if (isSuperAdmin) return true;
       if (currentUser && "permissions" in currentUser) {
@@ -163,7 +179,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       seasons: (m.seasons || []).map((s: any) => ({
         seasonNumber: s.seasonNumber,
         episodes: s.episodes || [],
-        fullSeasonFiles: s.fullSeasonFiles || [], // Added New Field
+        fullSeasonFiles: s.fullSeasonFiles || [],
       })),
       trailerLink: m.trailerLink || "",
       genres: m.genres || [],
@@ -171,6 +187,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       runtime: Number(m.runtime || 0),
       tagline: m.tagline || "",
       backdropUrl: m.backdropUrl || "",
+      isRecommended: m.isRecommended || false,
     }));
 
   const fetchMovies = useCallback(async () => {
@@ -257,7 +274,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       }
     }
   };
-  // --- Comments Logic ---
+    // --- Comments Logic ---
   const movieMap = useMemo(() => new Map(movies.map((m) => [m.id, m.title])), [movies]);
 
   const loadAllComments = async () => {
@@ -356,7 +373,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 
   // --- Form Helpers ---
   const isEditing = editingMovieId !== null;
-
   const resetForm = () => {
     setFormState(initialFormState);
     setEditingMovieId(null);
@@ -380,6 +396,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       genres: movie.genres || [],
       tagline: movie.tagline || "",
       backdropUrl: movie.backdropUrl || "",
+      isRecommended: movie.isRecommended || false,
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -401,7 +418,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       reader.readAsDataURL(file);
     }
   };
-  // --- Link Helpers ---
+    // --- Link Helpers ---
   const handleDownloadLinkChange = (index: number, field: keyof DownloadLink, value: string) => {
     const updated = formState.downloadLinks ? [...formState.downloadLinks] : [];
     if (!updated[index]) updated[index] = { quality: "", url: "" };
@@ -500,7 +517,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     newSeasons[seasonIndex].episodes[episodeIndex].telegramLinks[linkIndex][field] = value;
     setFormState((p) => ({ ...p, seasons: newSeasons }));
   };
-  // --- FULL SEASON FILE HELPERS (NEW) ---
+    // --- FULL SEASON FILE HELPERS (NEW) ---
   const addSeasonFile = (sIdx: number) => {
     const ns = JSON.parse(JSON.stringify(formState.seasons || []));
     if (!ns[sIdx].fullSeasonFiles) ns[sIdx].fullSeasonFiles = [];
@@ -568,7 +585,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       setIsTmdbLoading(false);
     }
   };
-
   const handleSelectTmdbResult = async (result: TmdbSearchResult) => {
     setIsTmdbLoading(true);
     setTmdbError(null);
@@ -577,13 +593,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       const res = await fetch(detailUrl);
       const details: TmdbDetailResponse = await res.json();
       const poster = details.poster_path ? `${TMDB_IMAGE_BASE_URL}w500${details.poster_path}` : "";
-      const backdrop = details.backdrop_path ? `${TMDB_IMAGE_BASE_URL}w1280${details.backdrop_path}` : "";
+      const backdrop = details.backdrop_path ?
+        `${TMDB_IMAGE_BASE_URL}w1280${details.backdrop_path}` : "";
       const trailerKey = details.videos?.results?.find((v: any) => v.type === "Trailer")?.key || "";
       const credits = details.credits;
       const director = credits?.crew?.find((c: any) => c.job === "Director")?.name || "";
       const producers = credits?.crew?.filter((c: any) => c.job === "Producer").map((p: any) => p.name).slice(0,3).join(", ") || "";
       const actors = credits?.cast?.slice(0,5).map((a: any) => a.name).join(", ") || "";
-
       setFormState((p) => ({
         ...p,
         title: (details as any).title || (details as any).name || "",
@@ -611,6 +627,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       setIsTmdbLoading(false);
     }
   };
+
   // --- CRUD ---
   const saveNewMovie = async () => {
     const payload = { ...formState, rating: Number(formState.rating) || 0, runtime: Number(formState.runtime) || 0, category: formState.category as MovieCategory };
@@ -652,8 +669,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       setSelectedManagedMovie(null);
     } catch (err: any) { console.error(err); alert("Remove failed"); }
   };
-
-  // UI Helpers
+    // UI Helpers
   const sidebarRef = useRef<HTMLDivElement>(null);
   const handleMouseMove = useCallback((e: MouseEvent) => { if (sidebarRef.current) { const newWidth = window.innerWidth - e.clientX; const clamped = Math.max(400, Math.min(newWidth, window.innerWidth * 0.98)); sidebarRef.current.style.width = `${clamped}px`; } }, []);
   const handleMouseUp = useCallback(() => { document.removeEventListener("mousemove", handleMouseMove); document.removeEventListener("mouseup", handleMouseUp); document.body.style.userSelect = ""; }, [handleMouseMove]);
@@ -669,8 +685,24 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
           {hasPermission("canManageComments") && (
-            <button onClick={() => setIsCommentSidebarOpen(true)} className="p-2 rounded-md text-light-text-secondary dark:text-brand-text-secondary hover:bg-black/5 dark:hover:bg-white/5 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z" /><path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h1a2 2 0 002-2V9a2 2 0 00-2-2h-1z" /></svg></button>
+            <button onClick={() => setIsCommentSidebarOpen(true)} className="p-2 rounded-md text-light-text-secondary dark:text-brand-text-secondary hover:bg-black/5 dark:hover:bg-white/5 transition-colors" title="Manage Comments"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z" /><path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h1a2 2 0 002-2V9a2 2 0 00-2-2h-1z" /></svg></button>
           )}
+
+          {/* --- NEW: Request Inbox Button --- */}
+          {hasPermission("canManageComments") && (
+            <button 
+                onClick={() => setIsRequestSidebarOpen(true)} 
+                className="p-2 ml-2 rounded-md text-light-text-secondary dark:text-brand-text-secondary hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                title="View Requests"
+            >
+                <div className="relative">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+            </button>
+          )}
+          
           <h1 className="text-3xl font-bold text-brand-primary">Admin Panel</h1>
         </div>
         <button onClick={onLogout} className="bg-gray-500 dark:bg-gray-600 hover:bg-gray-600 dark:hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition-colors duration-300">Logout</button>
@@ -713,8 +745,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         </>
       )}
-
-      {isSuperAdmin && (
+                  {isSuperAdmin && (
         <div className="bg-light-card dark:bg-brand-card p-6 rounded-lg mb-8 shadow-md">
           <h2 className="text-2xl mb-4 text-light-text dark:text-brand-text font-semibold">Admins</h2>
           <form onSubmit={handleAddAdmin} className="border border-gray-300 dark:border-gray-600 p-4 rounded-md mb-6 space-y-3 bg-light-bg/50 dark:bg-brand-bg/50">
@@ -739,6 +770,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         </div>
       )}
+
       {hasPermission("canAddContent") && (
         <div className="bg-light-card dark:bg-brand-card p-6 rounded-lg mb-8 shadow-md">
           <h2 className="text-2xl mb-4 text-light-text dark:text-brand-text font-semibold">{isEditing ? `Edit "${formState.title}"` : "Add Content"}</h2>
@@ -776,7 +808,20 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
               <option value="webseries">Webseries</option>
             </select>
 
-            {formState.category === "webseries" ? (
+            {/* ---> NEW: Recommendation Checkbox --- */}
+            <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-md border border-red-200 dark:border-red-800/30 mt-4">
+                <input
+                    type="checkbox"
+                    id="isRecommended"
+                    checked={!!formState.isRecommended}
+                    onChange={(e) => setFormState(prev => ({ ...prev, isRecommended: e.target.checked }))}
+                    className="w-5 h-5 text-red-600 focus:ring-red-500 rounded cursor-pointer accent-red-600"
+                />
+                <label htmlFor="isRecommended" className="text-sm font-bold text-red-700 dark:text-red-400 cursor-pointer select-none">
+                    Recommend this to Users (Show Red Badge)
+                </label>
+            </div>
+                        {formState.category === "webseries" ? (
               <fieldset className="border border-gray-300 dark:border-gray-600 p-4 rounded-md space-y-3">
                 <legend className="px-2 text-sm font-medium text-light-text-secondary dark:text-brand-text-secondary">Seasons & Episodes</legend>
                 {formState.seasons?.map((season, seasonIndex) => (
@@ -786,7 +831,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                       <button type="button" onClick={() => removeSeason(seasonIndex)} className="text-red-500 hover:text-red-700 text-sm">Remove Season</button>
                     </div>
 
-                    {/* --- NEW: FULL SEASON FILES SECTION --- */}
+                    {/* --- FULL SEASON FILES SECTION --- */}
                     <div className="pl-4 border-l-2 border-brand-primary/30 ml-2 my-4">
                       <p className="text-sm font-bold text-brand-primary mb-2">Full Season / Part Files</p>
                       {season.fullSeasonFiles?.map((file, fIdx) => (
@@ -966,6 +1011,35 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         </div>
       )}
+
+      {/* ---> NEW: Requests Sidebar UI ---> */}
+      {isRequestSidebarOpen && (
+        <>
+          <div className="fixed inset-0 bg-black z-40 bg-opacity-60 transition-opacity" onClick={() => setIsRequestSidebarOpen(false)} />
+          <div className="fixed top-0 right-0 h-full bg-light-sidebar dark:bg-brand-sidebar shadow-2xl z-50 flex flex-col w-[90vw] md:w-[40vw] animate-slide-in transform transition-transform">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-xl font-bold text-light-text dark:text-brand-text">User Requests</h2>
+              <button onClick={() => setIsRequestSidebarOpen(false)} className="text-red-500 font-bold p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded">Close</button>
+            </div>
+            <div className="flex-grow p-4 space-y-3 overflow-y-auto">
+              {requests.length === 0 ? (
+                <p className="text-center text-gray-500 mt-10">No requests found.</p>
+              ) : (
+                requests.map((req, idx) => (
+                  <div key={idx} className="p-4 bg-light-card dark:bg-brand-card rounded-lg shadow border-l-4 border-blue-500">
+                    <p className="text-lg font-bold text-brand-primary mb-1">{req.title}</p>
+                    <div className="flex justify-between items-center text-xs text-gray-400">
+                       <span>Status: <span className="uppercase font-semibold text-yellow-500">{req.status}</span></span>
+                       <span>{new Date(req.createdAt).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
     </div>
   );
 };
