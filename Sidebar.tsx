@@ -14,6 +14,35 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, theme, toggleTheme, genres, onSelectGenre, selectedGenre }) => {
   const [isGenreOpen, setIsGenreOpen] = useState(true);
 
+  // --- NEW: Request Feature States ---
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [requestTitle, setRequestTitle] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // --- NEW: Handle Request Submit ---
+  const handleRequestSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requestTitle.trim()) return;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/.netlify/functions/manageRequests", {
+        method: "POST",
+        body: JSON.stringify({ title: requestTitle }),
+      });
+      if (res.ok) {
+        alert("Request sent successfully! ✅");
+        setRequestTitle("");
+        setIsRequestModalOpen(false);
+      } else {
+        alert("Something went wrong ❌");
+      }
+    } catch (error) {
+      alert("Failed to send request.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <>
       <aside 
@@ -30,6 +59,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, theme, toggleTheme, 
             </div>
             
             <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
+                
+                {/* --- NEW: Request Button (Placed above Dark Mode) --- */}
+                <button
+                    onClick={() => setIsRequestModalOpen(true)}
+                    className="w-full flex items-center gap-4 p-3 rounded-lg text-light-text dark:text-brand-text hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-light-text-secondary dark:text-brand-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span className="font-medium">Request Movies</span>
+                </button>
+
                 <button
                     onClick={toggleTheme}
                     className="w-full flex items-center gap-4 p-3 rounded-lg text-light-text dark:text-brand-text hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
@@ -103,6 +144,45 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, theme, toggleTheme, 
             </nav>
         </div>
       </aside>
+      
+      {/* --- NEW: Request Modal Popup --- */}
+      {isRequestModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-70 p-4 animate-fade-in">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md shadow-xl relative animate-bounce-in">
+                <h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Request Content</h3>
+                <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">
+                    Enter the name of the movie or series you want us to add:
+                </p>
+                <form onSubmit={handleRequestSubmit}>
+                    <input
+                        type="text"
+                        placeholder="e.g. Stranger Things, Avengers..."
+                        value={requestTitle}
+                        onChange={(e) => setRequestTitle(e.target.value)}
+                        className="w-full p-3 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400 dark:placeholder-gray-500"
+                        required
+                    />
+                    <div className="flex justify-end gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setIsRequestModalOpen(false)}
+                            className="px-4 py-2 rounded text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 font-medium"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 font-medium"
+                        >
+                            {isSubmitting ? "Sending..." : "Send Request"}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+      )}
+
       {isOpen && (
         <div 
           onClick={onClose} 
@@ -115,3 +195,4 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, theme, toggleTheme, 
 };
 
 export default Sidebar;
+      
