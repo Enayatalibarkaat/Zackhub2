@@ -53,6 +53,7 @@ export interface Movie {
   runtime?: number; // in minutes
   tagline?: string;
   backdropUrl?: string;
+  isRecommended?: boolean; // <--- NEW: Ye line add ki hai
 }
 
 // --- Admin & Permissions Types ---
@@ -135,4 +136,4 @@ export interface TmdbDetailResponse {
   backdrop_path?: string | null;
   credits: TmdbCreditsResponse;
   videos: TmdbVideosResponse;
-}
+  }
