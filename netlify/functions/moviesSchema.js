@@ -53,6 +53,7 @@ const MovieSchema = new mongoose.Schema(
     releaseDate: String,
     runtime: Number,
     tagline: String,
+    isRecommended: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
