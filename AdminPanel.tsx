@@ -112,6 +112,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   // --- NEW: Requests Logic ---
   const [isRequestSidebarOpen, setIsRequestSidebarOpen] = useState(false);
   const [requests, setRequests] = useState<any[]>([]);
+  const [requestUpdateId, setRequestUpdateId] = useState<string | null>(null);
 
   const loadRequests = async () => {
     try {
@@ -128,6 +129,25 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       loadRequests();
     }
   }, [isRequestSidebarOpen]);
+
+  const updateRequestStatus = async (id: string, status: "completed" | "rejected") => {
+    setRequestUpdateId(id);
+    try {
+      const res = await fetch("/.netlify/functions/manageRequests", {
+        method: "PATCH",
+        body: JSON.stringify({ id, status }),
+      });
+      if (!res.ok) {
+        throw new Error("Failed to update request");
+      }
+      await loadRequests();
+    } catch (err) {
+      console.error("Failed to update request status", err);
+      alert("Request update failed. Please try again.");
+    } finally {
+      setRequestUpdateId(null);
+    }
+  };
 
   // admins
   const [admins, setAdmins] = useState<AdminUser[]>([]);
@@ -1028,9 +1048,40 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                 requests.map((req, idx) => (
                   <div key={idx} className="p-4 bg-light-card dark:bg-brand-card rounded-lg shadow border-l-4 border-blue-500">
                     <p className="text-lg font-bold text-brand-primary mb-1">{req.title}</p>
-                    <div className="flex justify-between items-center text-xs text-gray-400">
-                       <span>Status: <span className="uppercase font-semibold text-yellow-500">{req.status}</span></span>
-                       <span>{new Date(req.createdAt).toLocaleDateString()}</span>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-400">
+                      <span>
+                        Status:{" "}
+                        <span
+                          className={`uppercase font-semibold ${
+                            req.status === "completed"
+                              ? "text-green-500"
+                              : req.status === "rejected"
+                                ? "text-red-500"
+                                : "text-yellow-500"
+                          }`}
+                        >
+                          {req.status}
+                        </span>
+                      </span>
+                      <span>{new Date(req.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => updateRequestStatus(req._id, "completed")}
+                        disabled={requestUpdateId === req._id || req.status === "completed"}
+                        className="px-3 py-1 rounded bg-green-600 text-white text-xs font-semibold disabled:opacity-50"
+                      >
+                        Complete
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateRequestStatus(req._id, "rejected")}
+                        disabled={requestUpdateId === req._id || req.status === "rejected"}
+                        className="px-3 py-1 rounded bg-red-600 text-white text-xs font-semibold disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
                     </div>
                   </div>
                 ))

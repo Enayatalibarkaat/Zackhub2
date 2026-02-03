@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Movie } from '../types';
 import EditableText from './EditableText';
 
@@ -15,6 +15,7 @@ const MovieCard: React.FC<MovieCardProps> = ({
   isLiveEditMode,
   onUpdateField
 }) => {
+  const [showRecommendationNote, setShowRecommendationNote] = useState(false);
 
   // SAFE fallback values
   const poster =
@@ -67,18 +68,37 @@ const MovieCard: React.FC<MovieCardProps> = ({
       {/* --- NEW: Recommended Badge (Red Bookmark) --- */}
       {movie.isRecommended && (
         <div className="absolute top-0 left-2 z-10">
-           <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            viewBox="0 0 24 24" 
-            fill="currentColor" 
-            className="w-8 h-10 text-red-600 drop-shadow-lg"
-           >
-             <path fillRule="evenodd" d="M6.32 2.577a49.255 49.255 0 0111.36 0c1.497.174 2.57 1.46 2.57 2.93V21a.75.75 0 01-1.085.67L12 18.089l-7.165 3.583A.75.75 0 013.75 21V5.507c0-1.47 1.073-2.756 2.57-2.93z" clipRule="evenodd" />
-           </svg>
-           {/* Tooltip on Hover */}
-           <div className="absolute top-full left-0 mt-1 hidden group-hover:block bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded whitespace-nowrap z-20 shadow-xl">
-               Recommended
-           </div>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setShowRecommendationNote(true);
+              window.setTimeout(() => setShowRecommendationNote(false), 2000);
+            }}
+            className="relative flex items-start"
+            aria-label="Recommended by admin"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              className="w-8 h-10 text-red-600 drop-shadow-lg"
+            >
+              <path
+                fillRule="evenodd"
+                d="M6.32 2.577a49.255 49.255 0 0111.36 0c1.497.174 2.57 1.46 2.57 2.93V21a.75.75 0 01-1.085.67L12 18.089l-7.165 3.583A.75.75 0 013.75 21V5.507c0-1.47 1.073-2.756 2.57-2.93z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-white text-[10px] font-bold text-red-600 shadow">
+              i
+            </span>
+            {showRecommendationNote && (
+              <span className="absolute top-full left-0 mt-1 rounded bg-red-600 px-2 py-1 text-[10px] font-semibold text-white shadow">
+                Recommended by admin
+              </span>
+            )}
+          </button>
         </div>
       )}
 
