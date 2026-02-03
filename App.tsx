@@ -53,6 +53,10 @@ const App: React.FC = () => {
 
   const effectiveLiveEditMode = isLiveEditMode && canUserLiveEdit;
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedGenre, selectedCategory]);
+
   // --- Load Movies ---
   useEffect(() => {
     fetch("/.netlify/functions/trackVisit", { method: "POST" }).catch(console.error);

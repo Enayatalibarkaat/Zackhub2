@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Movie, Episode } from '../types';
 import ReactionPanel from './ReactionPanel';
 import CommentBox from './CommentBox';
@@ -26,6 +26,85 @@ const GenrePill: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, isLiveEditMode, onUpdateField }) => {
   const [selectedEpisode, setSelectedEpisode] = useState<Episode | null>(null);
+  const trailerEmbedUrl = useMemo(() => {
+    const raw = movie?.trailerLink?.trim();
+    if (!raw) return null;
+
+    const normalizeUrl = (value: string) => {
+      if (value.startsWith("//")) return `https:${value}`;
+      if (value.startsWith("http://") || value.startsWith("https://")) return value;
+      if (value.startsWith("www.")) return `https://${value}`;
+      return value;
+    };
+
+    const normalized = normalizeUrl(raw);
+
+    try {
+      const url = new URL(normalized);
+      const host = url.hostname.replace("www.", "");
+
+      if (host === "youtube.com" || host === "m.youtube.com") {
+        if (url.pathname.startsWith("/embed/")) {
+          return `https://www.youtube.com${url.pathname}`;
+        }
+        if (url.pathname.startsWith("/shorts/")) {
+          const shortId = url.pathname.split("/shorts/")[1]?.split("/")[0];
+          return shortId ? `https://www.youtube.com/embed/${shortId}` : null;
+        }
+        const videoId = url.searchParams.get("v");
+        return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+      }
+
+      if (host === "youtube-nocookie.com") {
+        if (url.pathname.startsWith("/embed/")) {
+          return `https://www.youtube-nocookie.com${url.pathname}`;
+        }
+      }
+
+      if (host === "youtu.be") {
+        const videoId = url.pathname.replace("/", "").split("?")[0];
+        return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+      }
+
+      if (host === "vimeo.com") {
+        const videoId = url.pathname.split("/").filter(Boolean)[0];
+        return videoId ? `https://player.vimeo.com/video/${videoId}` : null;
+      }
+
+      if (host === "player.vimeo.com" && url.pathname.startsWith("/video/")) {
+        return `https://player.vimeo.com${url.pathname}`;
+      }
+    } catch (error) {
+      // fall through to regex parsing
+    }
+
+    const youtubeWatchMatch = normalized.match(/youtube\.com\/watch\?v=([^&]+)/i);
+    if (youtubeWatchMatch) {
+      return `https://www.youtube.com/embed/${youtubeWatchMatch[1]}`;
+    }
+
+    const youtubeShortsMatch = normalized.match(/youtube\.com\/shorts\/([^?&/]+)/i);
+    if (youtubeShortsMatch) {
+      return `https://www.youtube.com/embed/${youtubeShortsMatch[1]}`;
+    }
+
+    const youtubeEmbedMatch = normalized.match(/youtube\.com\/embed\/([^?&/]+)/i);
+    if (youtubeEmbedMatch) {
+      return `https://www.youtube.com/embed/${youtubeEmbedMatch[1]}`;
+    }
+
+    const youtuBeMatch = normalized.match(/youtu\.be\/([^?&/]+)/i);
+    if (youtuBeMatch) {
+      return `https://www.youtube.com/embed/${youtuBeMatch[1]}`;
+    }
+
+    const vimeoMatch = normalized.match(/vimeo\.com\/(\d+)/i);
+    if (vimeoMatch) {
+      return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+    }
+
+    return null;
+  }, [movie?.trailerLink]);
     // --- SEO: Update Tab Title ---
   React.useEffect(() => {
     if (movie) {
@@ -240,12 +319,12 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
                     </div>
                 </div>
 
-                {movie.trailerLink && (
+                {trailerEmbedUrl && (
                     <div className="mb-10">
                         <h2 className="text-2xl font-bold text-light-text dark:text-brand-text mb-4">Watch Trailer</h2>
-                        <div className="aspect-w-16 aspect-h-9 rounded-lg overflow-hidden shadow-lg">
+                        <div className="aspect-video rounded-lg overflow-hidden shadow-lg">
                             <iframe 
-                                src={movie.trailerLink}
+                                src={trailerEmbedUrl}
                                 title={`${movie.title} Trailer`}
                                 frameBorder="0" 
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
