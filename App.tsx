@@ -57,6 +57,10 @@ const App: React.FC = () => {
     setCurrentPage(1);
   }, [searchQuery, selectedGenre, selectedCategory]);
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentPage, searchQuery, selectedGenre, selectedCategory]);
+
   // --- Load Movies ---
   useEffect(() => {
     fetch("/.netlify/functions/trackVisit", { method: "POST" }).catch(console.error);
