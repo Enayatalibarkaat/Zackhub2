@@ -112,7 +112,11 @@ export const handler = async (event) => {
       username: String(username),
       text: String(text).trim(),
       parentId: parentId ? String(parentId) : null,
-      createdAt: new Date()
+      createdAt: new Date(),
+      likes: 0,
+      dislikes: 0,
+      likedBy: [],
+      dislikedBy: []
     };
 
     const res = await db.collection(COMMENTS_COL).insertOne(doc);

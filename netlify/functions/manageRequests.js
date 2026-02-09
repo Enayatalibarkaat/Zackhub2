@@ -62,6 +62,25 @@ export const handler = async (event, context) => {
       return { statusCode: 200, body: JSON.stringify({ success: true }) };
     }
 
+
+    // 4. जब एडमिन रिक्वेस्ट delete करेगा (DELETE Request)
+    if (event.httpMethod === "DELETE") {
+      const data = JSON.parse(event.body || "{}");
+      const { id } = data;
+
+      if (!id) {
+        return { statusCode: 400, body: JSON.stringify({ message: "id is required" }) };
+      }
+
+      const result = await collection.deleteOne({ _id: new ObjectId(id) });
+
+      if (result.deletedCount === 0) {
+        return { statusCode: 404, body: JSON.stringify({ message: "Request not found" }) };
+      }
+
+      return { statusCode: 200, body: JSON.stringify({ success: true }) };
+    }
+
     return { statusCode: 405, body: "Method Not Allowed" };
 
   } catch (error) {
