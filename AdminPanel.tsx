@@ -149,6 +149,26 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
+  const deleteRequest = async (id: string) => {
+    if (!window.confirm("Delete this request permanently?")) return;
+    setRequestUpdateId(id);
+    try {
+      const res = await fetch("/.netlify/functions/manageRequests", {
+        method: "DELETE",
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) {
+        throw new Error("Failed to delete request");
+      }
+      await loadRequests();
+    } catch (err) {
+      console.error("Failed to delete request", err);
+      alert("Request delete failed. Please try again.");
+    } finally {
+      setRequestUpdateId(null);
+    }
+  };
+
   // admins
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [newAdminUsername, setNewAdminUsername] = useState("");
@@ -1081,6 +1101,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                         className="px-3 py-1 rounded bg-red-600 text-white text-xs font-semibold disabled:opacity-50"
                       >
                         Reject
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteRequest(req._id)}
+                        disabled={requestUpdateId === req._id}
+                        className="px-3 py-1 rounded bg-gray-700 text-white text-xs font-semibold disabled:opacity-50"
+                      >
+                        Delete
                       </button>
                     </div>
                   </div>
