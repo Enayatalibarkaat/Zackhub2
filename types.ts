@@ -77,10 +77,17 @@ export type CurrentUser = { username: 'Enayat78'; role: 'super' } | AdminUser;
 // --- Comment Type ---
 export interface Comment {
   id: string;
-  name: string;
+  name?: string;
+  username?: string;
   text: string;
-  timestamp: string;
+  timestamp?: string;
+  createdAt?: string;
   parentId: string | null;
+  likes?: number;
+  dislikes?: number;
+  likedBy?: string[];
+  dislikedBy?: string[];
+  isAdminReply?: boolean;
 }
 
 
