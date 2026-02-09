@@ -345,11 +345,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     e.preventDefault();
     if (!adminReplyText.trim() || !adminReplyingTo) return;
     try {
-      const res = await fetch("/.netlify/functions/addComment", {
+      const res = await fetch("/.netlify/functions/addAdminReply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: "ZackAdmin",
+          username: "Admin",
           movieId: adminReplyingTo.movieId,
           text: adminReplyText.trim(),
           parentId: adminReplyingTo.id || adminReplyingTo._id,
