@@ -77,7 +77,7 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
             </div>
             <p className="text-sm text-light-text-secondary dark:text-brand-text-secondary mb-4 truncate">{episode.title}</p>
             <div className="flex flex-col gap-3">
-              {episode.telegramLinks?.map((link, index) => (
+              {isTelegramVisible && episode.telegramLinks?.map((link, index) => (
                 <a
                   key={`tg-${index}`}
                   href={`https://t.me/Hubb_for_You_1bot?start=${link.fileId}`}
@@ -109,7 +109,8 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
       );
 };
 
-  const hasTelegramLink = movie.telegramLinks && movie.telegramLinks.length > 0;
+  const isTelegramVisible = !!movie.showTelegramFiles;
+  const hasTelegramLink = isTelegramVisible && movie.telegramLinks && movie.telegramLinks.length > 0;
   const hasDirectLinks = movie.downloadLinks && movie.downloadLinks.length > 0;
 
   return (
@@ -275,7 +276,7 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
                                               {file.title || "Full Season File"}
                                             </h4>
                                             <div className="flex flex-col gap-2">
-                                              {file.telegramLinks.map((link, lIdx) => (
+                                              {isTelegramVisible && file.telegramLinks.map((link, lIdx) => (
                                                 <a key={lIdx} href={`https://t.me/Hubb_for_You_1bot?start=${link.fileId}`} target="_blank" rel="noopener noreferrer" className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-bold py-2 px-3 rounded transition-all transform hover:scale-[1.02]">
                                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M9.78 18.65l.28-4.23l7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3L3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.57c-.28 1.1-.86 1.32-1.7.82l-4.7-3.45l-2.4 2.3c-.27.27-.5.39-.83.39.35-.39.42-.64.48-.92z"/></svg>
                                                   <span>Telegram {link.quality}</span>

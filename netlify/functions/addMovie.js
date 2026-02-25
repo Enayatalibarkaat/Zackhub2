@@ -1,5 +1,8 @@
 import { connect } from "./connect.js";
 import Movie from "./moviesSchema.js";
+import Settings from "./settingsSchema.js";
+
+const SETTINGS_KEY = "telegram_settings";
 
 export const handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -14,7 +17,14 @@ export const handler = async (event) => {
     }
 
     await connect();
-    const newMovie = new Movie(data);
+
+    const settings = await Settings.findOne({ key: SETTINGS_KEY }).lean();
+    const payload = {
+      ...data,
+      showTelegramFiles: settings?.enableTelegramForNewMovies ?? false,
+    };
+
+    const newMovie = new Movie(payload);
     await newMovie.save();
 
     return {
