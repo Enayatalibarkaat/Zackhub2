@@ -12,6 +12,7 @@ import {
   TelegramLink,
   TmdbSearchResult,
   TmdbDetailResponse,
+  TelegramSettings,
 } from "./types";
 import {
   getAllCommentsFromStorage,
@@ -179,6 +180,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const [tempPermissions, setTempPermissions] = useState<AdminPermissions | null>(null);
   // Visitor Stats
   const [visitStats, setVisitStats] = useState({ today: 0, total: 0 });
+  const [telegramSettings, setTelegramSettings] = useState<TelegramSettings>({
+    enableTelegramForNewMovies: false,
+    enableTelegramGlobally: true,
+  });
+  const [isTelegramSettingsSaving, setIsTelegramSettingsSaving] = useState(false);
   // UI helpers
   const isSuperAdmin = currentUser?.role === "super";
   const stats = useMemo(
@@ -228,6 +234,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       tagline: m.tagline || "",
       backdropUrl: m.backdropUrl || "",
       isRecommended: m.isRecommended || false,
+      showTelegramFiles: !!m.showTelegramFiles,
     }));
 
   const fetchMovies = useCallback(async () => {
@@ -244,6 +251,56 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   useEffect(() => {
     fetchMovies();
   }, [fetchMovies]);
+  useEffect(() => {
+    const loadTelegramSettings = async () => {
+      try {
+        const res = await fetch("/.netlify/functions/manageTelegramSettings");
+        if (!res.ok) throw new Error("Failed to load telegram settings");
+        const data = await res.json();
+        if (data?.settings) {
+          setTelegramSettings({
+            enableTelegramForNewMovies: !!data.settings.enableTelegramForNewMovies,
+            enableTelegramGlobally: !!data.settings.enableTelegramGlobally,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch telegram settings:", err);
+      }
+    };
+
+    loadTelegramSettings();
+  }, []);
+
+  const updateTelegramSettings = async (updates: Partial<TelegramSettings>) => {
+    setIsTelegramSettingsSaving(true);
+    try {
+      const res = await fetch("/.netlify/functions/manageTelegramSettings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+
+      if (!res.ok) throw new Error("Failed to update telegram settings");
+
+      const data = await res.json();
+      if (data?.settings) {
+        setTelegramSettings({
+          enableTelegramForNewMovies: !!data.settings.enableTelegramForNewMovies,
+          enableTelegramGlobally: !!data.settings.enableTelegramGlobally,
+        });
+      }
+
+      if (Object.prototype.hasOwnProperty.call(updates, "enableTelegramGlobally")) {
+        await fetchMovies();
+      }
+    } catch (err) {
+      console.error("Failed to update telegram settings:", err);
+      alert("Telegram settings update failed. Please try again.");
+      setTelegramSettings((prev) => ({ ...prev, ...updates }));
+    } finally {
+      setIsTelegramSettingsSaving(false);
+    }
+  };
 
   // Visitor Stats
   useEffect(() => {
@@ -437,6 +494,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       tagline: movie.tagline || "",
       backdropUrl: movie.backdropUrl || "",
       isRecommended: movie.isRecommended || false,
+      showTelegramFiles: !!movie.showTelegramFiles,
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -756,6 +814,36 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-4 rounded-lg shadow-md text-white"><p className="text-4xl font-bold">{visitStats.total}</p><p className="text-sm opacity-90 mt-1">Monthly</p></div>
         </div>
       </div>
+
+      {hasPermission("canAddContent") && (
+        <div className="bg-light-card dark:bg-brand-card p-6 rounded-lg mb-8 shadow-md">
+          <h2 className="text-2xl mb-4 text-light-text dark:text-brand-text font-semibold">Telegram File Controls</h2>
+          <div className="space-y-3">
+            <PermissionToggle
+              label="New movies me Telegram file option dikhaye"
+              isChecked={telegramSettings.enableTelegramForNewMovies}
+              onChange={(checked) => {
+                setTelegramSettings((prev) => ({ ...prev, enableTelegramForNewMovies: checked }));
+                updateTelegramSettings({ enableTelegramForNewMovies: checked });
+              }}
+            />
+            <PermissionToggle
+              label="Poore website par Telegram file option force enable/disable kare"
+              isChecked={telegramSettings.enableTelegramGlobally}
+              onChange={(checked) => {
+                setTelegramSettings((prev) => ({ ...prev, enableTelegramGlobally: checked }));
+                updateTelegramSettings({ enableTelegramGlobally: checked });
+              }}
+            />
+          </div>
+          {isTelegramSettingsSaving && (
+            <p className="text-sm text-light-text-secondary dark:text-brand-text-secondary mt-3">Saving telegram settings...</p>
+          )}
+          <p className="text-xs mt-3 text-light-text-secondary dark:text-brand-text-secondary">
+            Global switch ON/OFF karne par existing sabhi movies ka Telegram option turant update ho jayega.
+          </p>
+        </div>
+      )}
 
       {hasPermission("canManageComments") && (
         <>

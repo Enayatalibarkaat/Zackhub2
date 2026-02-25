@@ -36,6 +36,7 @@ export interface Genre {
 
 export interface Movie {
   id: string;
+  _id?: string;
   title: string;
   posterUrl: string;
   description: string;
@@ -54,6 +55,12 @@ export interface Movie {
   tagline?: string;
   backdropUrl?: string;
   isRecommended?: boolean; // <--- NEW: Ye line add ki hai
+  showTelegramFiles?: boolean;
+}
+
+export interface TelegramSettings {
+  enableTelegramForNewMovies: boolean;
+  enableTelegramGlobally: boolean;
 }
 
 // --- Admin & Permissions Types ---
