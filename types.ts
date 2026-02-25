@@ -56,6 +56,8 @@ export interface Movie {
   backdropUrl?: string;
   isRecommended?: boolean; // <--- NEW: Ye line add ki hai
   showTelegramFiles?: boolean;
+  screenshotLinks?: string[];
+  screenshot_links?: string[];
 }
 
 export interface TelegramSettings {
