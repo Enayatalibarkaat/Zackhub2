@@ -8,6 +8,31 @@ const getDefaultSettings = () => ({
   key: SETTINGS_KEY,
   enableTelegramForNewMovies: false,
   enableTelegramGlobally: true,
+  linkShortenerEnabled: false,
+  linkShortenerName: "",
+  linkShortenerApiKey: "",
+  linkShortenerApiUrl: "",
+  linkShortenerHttpMethod: "GET",
+  linkShortenerPayloadType: "query",
+  linkShortenerApiKeyField: "api",
+  linkShortenerUrlField: "url",
+  linkShortenerResponsePaths: "shortenedUrl,shortened_url,short,url,result.url,result.shortenedUrl",
+});
+
+const serializeSettings = (settings) => ({
+  enableTelegramForNewMovies: !!settings.enableTelegramForNewMovies,
+  enableTelegramGlobally: !!settings.enableTelegramGlobally,
+  linkShortenerEnabled: !!settings.linkShortenerEnabled,
+  linkShortenerName: settings.linkShortenerName || "",
+  linkShortenerApiKey: settings.linkShortenerApiKey || "",
+  linkShortenerApiUrl: settings.linkShortenerApiUrl || "",
+  linkShortenerHttpMethod: settings.linkShortenerHttpMethod || "GET",
+  linkShortenerPayloadType: settings.linkShortenerPayloadType || "query",
+  linkShortenerApiKeyField: settings.linkShortenerApiKeyField || "api",
+  linkShortenerUrlField: settings.linkShortenerUrlField || "url",
+  linkShortenerResponsePaths:
+    settings.linkShortenerResponsePaths ||
+    "shortenedUrl,shortened_url,short,url,result.url,result.shortenedUrl",
 });
 
 const getSettingsDoc = async () => {
@@ -37,12 +62,7 @@ export const handler = async (event) => {
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify({
-          settings: {
-            enableTelegramForNewMovies: !!settings.enableTelegramForNewMovies,
-            enableTelegramGlobally: !!settings.enableTelegramGlobally,
-          },
-        }),
+        body: JSON.stringify({ settings: serializeSettings(settings) }),
       };
     }
 
@@ -59,6 +79,37 @@ export const handler = async (event) => {
         await Movie.updateMany({}, { $set: { showTelegramFiles: data.enableTelegramGlobally } });
       }
 
+      if (typeof data.linkShortenerEnabled === "boolean") {
+        updates.linkShortenerEnabled = data.linkShortenerEnabled;
+      }
+      if (typeof data.linkShortenerName === "string") {
+        updates.linkShortenerName = data.linkShortenerName.trim();
+      }
+      if (typeof data.linkShortenerApiKey === "string") {
+        updates.linkShortenerApiKey = data.linkShortenerApiKey.trim();
+      }
+      if (typeof data.linkShortenerApiUrl === "string") {
+        updates.linkShortenerApiUrl = data.linkShortenerApiUrl.trim();
+      }
+      if (typeof data.linkShortenerHttpMethod === "string") {
+        updates.linkShortenerHttpMethod = data.linkShortenerHttpMethod.toUpperCase() === "POST" ? "POST" : "GET";
+      }
+      if (typeof data.linkShortenerPayloadType === "string") {
+        const payloadType = data.linkShortenerPayloadType.toLowerCase();
+        updates.linkShortenerPayloadType = ["query", "json", "form"].includes(payloadType)
+          ? payloadType
+          : "query";
+      }
+      if (typeof data.linkShortenerApiKeyField === "string") {
+        updates.linkShortenerApiKeyField = data.linkShortenerApiKeyField.trim() || "api";
+      }
+      if (typeof data.linkShortenerUrlField === "string") {
+        updates.linkShortenerUrlField = data.linkShortenerUrlField.trim() || "url";
+      }
+      if (typeof data.linkShortenerResponsePaths === "string") {
+        updates.linkShortenerResponsePaths = data.linkShortenerResponsePaths.trim();
+      }
+
       const settings = await Settings.findOneAndUpdate(
         { key: SETTINGS_KEY },
         { $set: updates, $setOnInsert: getDefaultSettings() },
@@ -68,13 +119,7 @@ export const handler = async (event) => {
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify({
-          success: true,
-          settings: {
-            enableTelegramForNewMovies: !!settings.enableTelegramForNewMovies,
-            enableTelegramGlobally: !!settings.enableTelegramGlobally,
-          },
-        }),
+        body: JSON.stringify({ success: true, settings: serializeSettings(settings) }),
       };
     }
 
