@@ -40,7 +40,7 @@ const collectScreenshotMap = async (db) => {
     .map((s) => s.trim())
     .filter(Boolean);
 
-  const fallbackCollections = ["telegram_files", "movie_files", "downloads", "links", "files"];
+  const fallbackCollections = ["movie_screenshots", "telegram_files", "movie_files", "downloads", "links", "files"];
   const collectionNames = configured.length ? configured : fallbackCollections;
 
   const existingCollections = new Set(
