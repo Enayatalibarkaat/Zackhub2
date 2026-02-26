@@ -113,6 +113,8 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
   const hasTelegramLink = isTelegramVisible && movie.telegramLinks && movie.telegramLinks.length > 0;
   const hasDirectLinks = movie.downloadLinks && movie.downloadLinks.length > 0;
 
+  const screenshotLinks = (((movie as any).screenshot_links || (movie as any).screenshotLinks || []) as string[]).filter(Boolean);
+
   return (
     <>
     <div className="animate-fade-in bg-light-bg dark:bg-brand-bg text-light-text dark:text-brand-text">
@@ -240,6 +242,23 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
                         />
                     </div>
                 </div>
+
+                {screenshotLinks.length > 0 && (
+                    <div className="mb-10">
+                        <h2 className="text-2xl font-bold text-light-text dark:text-brand-text mb-4">: Screen-Shots :</h2>
+                        <div className="overflow-hidden rounded-lg">
+                            {screenshotLinks.map((shot, index) => (
+                                <img
+                                    key={`${movie.id || movie._id || movie.title}-shot-${index}`}
+                                    src={shot}
+                                    alt={`${movie.title} screenshot ${index + 1}`}
+                                    className="w-full h-auto block"
+                                    loading="lazy"
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {movie.trailerLink && (
                     <div className="mb-10">
