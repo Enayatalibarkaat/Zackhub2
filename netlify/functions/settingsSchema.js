@@ -9,11 +9,6 @@ const SettingsSchema = new mongoose.Schema(
     linkShortenerName: { type: String, default: "" },
     linkShortenerApiKey: { type: String, default: "" },
     linkShortenerApiUrl: { type: String, default: "" },
-    linkShortenerHttpMethod: { type: String, default: "GET" },
-    linkShortenerPayloadType: { type: String, default: "query" },
-    linkShortenerApiKeyField: { type: String, default: "api" },
-    linkShortenerUrlField: { type: String, default: "url" },
-    linkShortenerResponsePaths: { type: String, default: "shortenedUrl,shortened_url,short,url,result.url,result.shortenedUrl" },
   },
   { timestamps: true }
 );

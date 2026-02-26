@@ -11,72 +11,68 @@ const headers = {
 
 const safeTrim = (value) => (typeof value === "string" ? value.trim() : "");
 
-const getByPath = (obj, path) => {
-  if (!obj || !path) return undefined;
-  return path.split(".").reduce((acc, key) => (acc && key in acc ? acc[key] : undefined), obj);
-};
-
-const parsePaths = (raw) => {
-  const defaultPaths = [
+const extractShortUrl = (result) => {
+  const paths = [
     "shortenedUrl",
     "shortened_url",
     "short",
     "url",
+    "result.url",
     "result.shortenedUrl",
     "result.shortened_url",
-    "result.url",
-    "data.shortenedUrl",
     "data.url",
+    "data.shortenedUrl",
+    "data.shortened_url",
   ];
-  if (!raw || typeof raw !== "string") return defaultPaths;
-  const paths = raw
-    .split(",")
-    .map((p) => p.trim())
-    .filter(Boolean);
-  return paths.length ? paths : defaultPaths;
-};
 
-const pickShortenedUrl = (result, responsePaths) => {
-  for (const path of responsePaths) {
+  const getByPath = (obj, path) => path.split(".").reduce((acc, key) => (acc && key in acc ? acc[key] : undefined), obj);
+
+  for (const path of paths) {
     const value = getByPath(result, path);
     if (typeof value === "string" && value.trim()) return value.trim();
   }
   return "";
 };
 
-const buildRequest = ({ apiUrl, httpMethod, payloadType, apiKeyField, urlField, apiKey, urlToShorten }) => {
-  const method = httpMethod === "POST" ? "POST" : "GET";
-  const payload = {
-    [apiKeyField]: apiKey,
-    [urlField]: urlToShorten,
-  };
+const tryProvider = async ({ apiUrl, apiKey, targetUrl }) => {
+  const queryUrl = new URL(apiUrl);
+  queryUrl.searchParams.set("api", apiKey);
+  queryUrl.searchParams.set("url", targetUrl);
 
-  if (method === "GET" || payloadType === "query") {
-    const u = new URL(apiUrl);
-    Object.entries(payload).forEach(([k, v]) => u.searchParams.set(k, v));
-    return { url: u.toString(), options: { method: "GET" } };
-  }
-
-  if (payloadType === "form") {
-    const body = new URLSearchParams(payload).toString();
-    return {
+  const attempts = [
+    { url: queryUrl.toString(), options: { method: "GET" } },
+    {
       url: apiUrl,
       options: {
-        method,
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ api: apiKey, url: targetUrl }),
       },
-    };
+    },
+    {
+      url: apiUrl,
+      options: {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ api: apiKey, url: targetUrl }).toString(),
+      },
+    },
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      const response = await fetch(attempt.url, attempt.options);
+      const result = await response.json().catch(() => ({}));
+      const shortenedUrl = extractShortUrl(result);
+      if (response.ok && shortenedUrl) {
+        return shortenedUrl;
+      }
+    } catch (error) {
+      console.error("shortener attempt failed:", error);
+    }
   }
 
-  return {
-    url: apiUrl,
-    options: {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    },
-  };
+  return "";
 };
 
 export const handler = async (event) => {
@@ -107,62 +103,20 @@ export const handler = async (event) => {
 
     const apiUrl = safeTrim(settings.linkShortenerApiUrl);
     const apiKey = safeTrim(settings.linkShortenerApiKey);
-    const httpMethod = safeTrim(settings.linkShortenerHttpMethod).toUpperCase() || "GET";
-    const payloadType = safeTrim(settings.linkShortenerPayloadType).toLowerCase() || "query";
-    const apiKeyField = safeTrim(settings.linkShortenerApiKeyField) || "api";
-    const urlField = safeTrim(settings.linkShortenerUrlField) || "url";
-    const responsePaths = parsePaths(settings.linkShortenerResponsePaths);
 
     if (!apiUrl || !apiKey) {
       return { statusCode: 200, headers, body: JSON.stringify({ shortenedUrl: urlToShorten, bypassed: true }) };
     }
 
-    let request;
-    try {
-      request = buildRequest({
-        apiUrl,
-        httpMethod,
-        payloadType,
-        apiKeyField,
-        urlField,
-        apiKey,
-        urlToShorten,
-      });
-    } catch (e) {
-      console.error("Invalid shortener URL/config:", e);
-      return { statusCode: 200, headers, body: JSON.stringify({ shortenedUrl: urlToShorten, bypassed: true }) };
+    const shortenedUrl = await tryProvider({ apiUrl, apiKey, targetUrl: urlToShorten });
+
+    if (!shortenedUrl) {
+      return { statusCode: 200, headers, body: JSON.stringify({ shortenedUrl: urlToShorten, bypassed: true, providerError: true }) };
     }
 
-    const response = await fetch(request.url, request.options);
-
-    let result = {};
-    try {
-      result = await response.json();
-    } catch {
-      result = {};
-    }
-
-    const shortenedUrl = pickShortenedUrl(result, responsePaths);
-
-    if (!response.ok || !shortenedUrl) {
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ shortenedUrl: urlToShorten, bypassed: true, providerError: !response.ok }),
-      };
-    }
-
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ shortenedUrl }),
-    };
+    return { statusCode: 200, headers, body: JSON.stringify({ shortenedUrl }) };
   } catch (error) {
     console.error("shortenLink handler error:", error);
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ shortenedUrl: urlToShorten, bypassed: true }),
-    };
+    return { statusCode: 200, headers, body: JSON.stringify({ shortenedUrl: urlToShorten, bypassed: true }) };
   }
 };

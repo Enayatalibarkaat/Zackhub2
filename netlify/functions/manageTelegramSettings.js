@@ -12,11 +12,6 @@ const getDefaultSettings = () => ({
   linkShortenerName: "",
   linkShortenerApiKey: "",
   linkShortenerApiUrl: "",
-  linkShortenerHttpMethod: "GET",
-  linkShortenerPayloadType: "query",
-  linkShortenerApiKeyField: "api",
-  linkShortenerUrlField: "url",
-  linkShortenerResponsePaths: "shortenedUrl,shortened_url,short,url,result.url,result.shortenedUrl",
 });
 
 const serializeSettings = (settings) => ({
@@ -26,20 +21,11 @@ const serializeSettings = (settings) => ({
   linkShortenerName: settings.linkShortenerName || "",
   linkShortenerApiKey: settings.linkShortenerApiKey || "",
   linkShortenerApiUrl: settings.linkShortenerApiUrl || "",
-  linkShortenerHttpMethod: settings.linkShortenerHttpMethod || "GET",
-  linkShortenerPayloadType: settings.linkShortenerPayloadType || "query",
-  linkShortenerApiKeyField: settings.linkShortenerApiKeyField || "api",
-  linkShortenerUrlField: settings.linkShortenerUrlField || "url",
-  linkShortenerResponsePaths:
-    settings.linkShortenerResponsePaths ||
-    "shortenedUrl,shortened_url,short,url,result.url,result.shortenedUrl",
 });
 
 const getSettingsDoc = async () => {
   let settings = await Settings.findOne({ key: SETTINGS_KEY });
-  if (!settings) {
-    settings = await Settings.create(getDefaultSettings());
-  }
+  if (!settings) settings = await Settings.create(getDefaultSettings());
   return settings;
 };
 
@@ -59,11 +45,7 @@ export const handler = async (event) => {
 
     if (event.httpMethod === "GET") {
       const settings = await getSettingsDoc();
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ settings: serializeSettings(settings) }),
-      };
+      return { statusCode: 200, headers, body: JSON.stringify({ settings: serializeSettings(settings) }) };
     }
 
     if (event.httpMethod === "PATCH") {
@@ -73,10 +55,21 @@ export const handler = async (event) => {
       if (typeof data.enableTelegramForNewMovies === "boolean") {
         updates.enableTelegramForNewMovies = data.enableTelegramForNewMovies;
       }
-
       if (typeof data.enableTelegramGlobally === "boolean") {
         updates.enableTelegramGlobally = data.enableTelegramGlobally;
         await Movie.updateMany({}, { $set: { showTelegramFiles: data.enableTelegramGlobally } });
+      }
+      if (typeof data.linkShortenerEnabled === "boolean") {
+        updates.linkShortenerEnabled = data.linkShortenerEnabled;
+      }
+      if (typeof data.linkShortenerName === "string") {
+        updates.linkShortenerName = data.linkShortenerName.trim();
+      }
+      if (typeof data.linkShortenerApiKey === "string") {
+        updates.linkShortenerApiKey = data.linkShortenerApiKey.trim();
+      }
+      if (typeof data.linkShortenerApiUrl === "string") {
+        updates.linkShortenerApiUrl = data.linkShortenerApiUrl.trim();
       }
 
       if (typeof data.linkShortenerEnabled === "boolean") {
@@ -116,20 +109,12 @@ export const handler = async (event) => {
         { new: true, upsert: true }
       );
 
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ success: true, settings: serializeSettings(settings) }),
-      };
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true, settings: serializeSettings(settings) }) };
     }
 
     return { statusCode: 405, headers, body: JSON.stringify({ error: "Method Not Allowed" }) };
   } catch (error) {
     console.error("Telegram settings handler error:", error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ success: false, error: "Failed to manage telegram settings" }),
-    };
+    return { statusCode: 500, headers, body: JSON.stringify({ success: false, error: "Failed to manage telegram settings" }) };
   }
 };

@@ -67,11 +67,6 @@ export interface TelegramSettings {
   linkShortenerName?: string;
   linkShortenerApiKey?: string;
   linkShortenerApiUrl?: string;
-  linkShortenerHttpMethod?: "GET" | "POST";
-  linkShortenerPayloadType?: "query" | "json" | "form";
-  linkShortenerApiKeyField?: string;
-  linkShortenerUrlField?: string;
-  linkShortenerResponsePaths?: string;
 }
 
 // --- Admin & Permissions Types ---
