@@ -183,6 +183,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const [telegramSettings, setTelegramSettings] = useState<TelegramSettings>({
     enableTelegramForNewMovies: false,
     enableTelegramGlobally: true,
+    linkShortenerEnabled: false,
+    linkShortenerName: "",
+    linkShortenerApiKey: "",
+    linkShortenerApiUrl: "",
+    linkShortenerHttpMethod: "GET",
+    linkShortenerPayloadType: "query",
+    linkShortenerApiKeyField: "api",
+    linkShortenerUrlField: "url",
+    linkShortenerResponsePaths: "shortenedUrl,shortened_url,short,url,result.url,result.shortenedUrl",
   });
   const [isTelegramSettingsSaving, setIsTelegramSettingsSaving] = useState(false);
   // UI helpers
@@ -261,6 +270,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           setTelegramSettings({
             enableTelegramForNewMovies: !!data.settings.enableTelegramForNewMovies,
             enableTelegramGlobally: !!data.settings.enableTelegramGlobally,
+            linkShortenerEnabled: !!data.settings.linkShortenerEnabled,
+            linkShortenerName: data.settings.linkShortenerName || "",
+            linkShortenerApiKey: data.settings.linkShortenerApiKey || "",
+            linkShortenerApiUrl: data.settings.linkShortenerApiUrl || "",
+            linkShortenerHttpMethod: data.settings.linkShortenerHttpMethod || "GET",
+            linkShortenerPayloadType: data.settings.linkShortenerPayloadType || "query",
+            linkShortenerApiKeyField: data.settings.linkShortenerApiKeyField || "api",
+            linkShortenerUrlField: data.settings.linkShortenerUrlField || "url",
+            linkShortenerResponsePaths: data.settings.linkShortenerResponsePaths || "shortenedUrl,shortened_url,short,url,result.url,result.shortenedUrl",
           });
         }
       } catch (err) {
@@ -287,6 +305,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         setTelegramSettings({
           enableTelegramForNewMovies: !!data.settings.enableTelegramForNewMovies,
           enableTelegramGlobally: !!data.settings.enableTelegramGlobally,
+          linkShortenerEnabled: !!data.settings.linkShortenerEnabled,
+          linkShortenerName: data.settings.linkShortenerName || "",
+          linkShortenerApiKey: data.settings.linkShortenerApiKey || "",
+          linkShortenerApiUrl: data.settings.linkShortenerApiUrl || "",
+          linkShortenerHttpMethod: data.settings.linkShortenerHttpMethod || "GET",
+          linkShortenerPayloadType: data.settings.linkShortenerPayloadType || "query",
+          linkShortenerApiKeyField: data.settings.linkShortenerApiKeyField || "api",
+          linkShortenerUrlField: data.settings.linkShortenerUrlField || "url",
+          linkShortenerResponsePaths: data.settings.linkShortenerResponsePaths || "shortenedUrl,shortened_url,short,url,result.url,result.shortenedUrl",
         });
       }
 
@@ -842,6 +869,118 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           <p className="text-xs mt-3 text-light-text-secondary dark:text-brand-text-secondary">
             Global switch ON/OFF karne par existing sabhi movies ka Telegram option turant update ho jayega.
           </p>
+          <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3">
+            <PermissionToggle
+              label="Download links ke liye Link Shortener enable kare"
+              isChecked={!!telegramSettings.linkShortenerEnabled}
+              onChange={(checked) => {
+                setTelegramSettings((prev) => ({ ...prev, linkShortenerEnabled: checked }));
+                updateTelegramSettings({ linkShortenerEnabled: checked });
+              }}
+            />
+            <div>
+              <label className="block text-sm mb-1 text-light-text dark:text-brand-text">Shortener Name (example: gplinks)</label>
+              <input
+                type="text"
+                value={telegramSettings.linkShortenerName || ""}
+                onChange={(e) => setTelegramSettings((prev) => ({ ...prev, linkShortenerName: e.target.value }))}
+                onBlur={() => updateTelegramSettings({ linkShortenerName: telegramSettings.linkShortenerName || "" })}
+                placeholder="gplinks"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-sm mb-1 text-light-text dark:text-brand-text">Shortener API URL</label>
+              <input
+                type="text"
+                value={telegramSettings.linkShortenerApiUrl || ""}
+                onChange={(e) => setTelegramSettings((prev) => ({ ...prev, linkShortenerApiUrl: e.target.value }))}
+                onBlur={() => updateTelegramSettings({ linkShortenerApiUrl: telegramSettings.linkShortenerApiUrl || "" })}
+                placeholder="https://example.com/api"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-sm mb-1 text-light-text dark:text-brand-text">Shortener API Key</label>
+              <input
+                type="password"
+                value={telegramSettings.linkShortenerApiKey || ""}
+                onChange={(e) => setTelegramSettings((prev) => ({ ...prev, linkShortenerApiKey: e.target.value }))}
+                onBlur={() => updateTelegramSettings({ linkShortenerApiKey: telegramSettings.linkShortenerApiKey || "" })}
+                placeholder="API key"
+                className={inputClass}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm mb-1 text-light-text dark:text-brand-text">HTTP Method</label>
+                <select
+                  value={telegramSettings.linkShortenerHttpMethod || "GET"}
+                  onChange={(e) => {
+                    const value = e.target.value as "GET" | "POST";
+                    setTelegramSettings((prev) => ({ ...prev, linkShortenerHttpMethod: value }));
+                    updateTelegramSettings({ linkShortenerHttpMethod: value });
+                  }}
+                  className={inputClass}
+                >
+                  <option value="GET">GET</option>
+                  <option value="POST">POST</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm mb-1 text-light-text dark:text-brand-text">Payload Type</label>
+                <select
+                  value={telegramSettings.linkShortenerPayloadType || "query"}
+                  onChange={(e) => {
+                    const value = e.target.value as "query" | "json" | "form";
+                    setTelegramSettings((prev) => ({ ...prev, linkShortenerPayloadType: value }));
+                    updateTelegramSettings({ linkShortenerPayloadType: value });
+                  }}
+                  className={inputClass}
+                >
+                  <option value="query">Query Params</option>
+                  <option value="json">JSON Body</option>
+                  <option value="form">Form Body</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm mb-1 text-light-text dark:text-brand-text">API Key Field Name</label>
+                <input
+                  type="text"
+                  value={telegramSettings.linkShortenerApiKeyField || "api"}
+                  onChange={(e) => setTelegramSettings((prev) => ({ ...prev, linkShortenerApiKeyField: e.target.value }))}
+                  onBlur={() => updateTelegramSettings({ linkShortenerApiKeyField: telegramSettings.linkShortenerApiKeyField || "api" })}
+                  placeholder="api"
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-1 text-light-text dark:text-brand-text">Destination URL Field Name</label>
+                <input
+                  type="text"
+                  value={telegramSettings.linkShortenerUrlField || "url"}
+                  onChange={(e) => setTelegramSettings((prev) => ({ ...prev, linkShortenerUrlField: e.target.value }))}
+                  onBlur={() => updateTelegramSettings({ linkShortenerUrlField: telegramSettings.linkShortenerUrlField || "url" })}
+                  placeholder="url"
+                  className={inputClass}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm mb-1 text-light-text dark:text-brand-text">Response paths (comma separated)</label>
+              <input
+                type="text"
+                value={telegramSettings.linkShortenerResponsePaths || ""}
+                onChange={(e) => setTelegramSettings((prev) => ({ ...prev, linkShortenerResponsePaths: e.target.value }))}
+                onBlur={() => updateTelegramSettings({ linkShortenerResponsePaths: telegramSettings.linkShortenerResponsePaths || "" })}
+                placeholder="shortenedUrl,shortened_url,url,result.url"
+                className={inputClass}
+              />
+              <p className="text-xs mt-1 text-light-text-secondary dark:text-brand-text-secondary">Isse aap almost kisi bhi shortener API ke response ko map kar sakte ho.</p>
+            </div>
+          </div>
         </div>
       )}
 
