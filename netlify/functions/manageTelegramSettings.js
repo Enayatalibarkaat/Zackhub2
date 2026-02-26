@@ -72,6 +72,37 @@ export const handler = async (event) => {
         updates.linkShortenerApiUrl = data.linkShortenerApiUrl.trim();
       }
 
+      if (typeof data.linkShortenerEnabled === "boolean") {
+        updates.linkShortenerEnabled = data.linkShortenerEnabled;
+      }
+      if (typeof data.linkShortenerName === "string") {
+        updates.linkShortenerName = data.linkShortenerName.trim();
+      }
+      if (typeof data.linkShortenerApiKey === "string") {
+        updates.linkShortenerApiKey = data.linkShortenerApiKey.trim();
+      }
+      if (typeof data.linkShortenerApiUrl === "string") {
+        updates.linkShortenerApiUrl = data.linkShortenerApiUrl.trim();
+      }
+      if (typeof data.linkShortenerHttpMethod === "string") {
+        updates.linkShortenerHttpMethod = data.linkShortenerHttpMethod.toUpperCase() === "POST" ? "POST" : "GET";
+      }
+      if (typeof data.linkShortenerPayloadType === "string") {
+        const payloadType = data.linkShortenerPayloadType.toLowerCase();
+        updates.linkShortenerPayloadType = ["query", "json", "form"].includes(payloadType)
+          ? payloadType
+          : "query";
+      }
+      if (typeof data.linkShortenerApiKeyField === "string") {
+        updates.linkShortenerApiKeyField = data.linkShortenerApiKeyField.trim() || "api";
+      }
+      if (typeof data.linkShortenerUrlField === "string") {
+        updates.linkShortenerUrlField = data.linkShortenerUrlField.trim() || "url";
+      }
+      if (typeof data.linkShortenerResponsePaths === "string") {
+        updates.linkShortenerResponsePaths = data.linkShortenerResponsePaths.trim();
+      }
+
       const settings = await Settings.findOneAndUpdate(
         { key: SETTINGS_KEY },
         { $set: updates, $setOnInsert: getDefaultSettings() },
