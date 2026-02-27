@@ -183,8 +183,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const [telegramSettings, setTelegramSettings] = useState<TelegramSettings>({
     enableTelegramForNewMovies: false,
     enableTelegramGlobally: true,
+    linkShortenerEnabled: false,
+    linkShortenerApiKey: "",
+    linkShortenerApiUrl: "",
   });
   const [isTelegramSettingsSaving, setIsTelegramSettingsSaving] = useState(false);
+  const [telegramSettingsError, setTelegramSettingsError] = useState("");
   // UI helpers
   const isSuperAdmin = currentUser?.role === "super";
   const stats = useMemo(
@@ -261,6 +265,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           setTelegramSettings({
             enableTelegramForNewMovies: !!data.settings.enableTelegramForNewMovies,
             enableTelegramGlobally: !!data.settings.enableTelegramGlobally,
+            linkShortenerEnabled: !!data.settings.linkShortenerEnabled,
+            linkShortenerApiKey: data.settings.linkShortenerApiKey || "",
+            linkShortenerApiUrl: data.settings.linkShortenerApiUrl || "",
           });
         }
       } catch (err) {
@@ -273,29 +280,53 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const updateTelegramSettings = async (updates: Partial<TelegramSettings>) => {
     setIsTelegramSettingsSaving(true);
-    try {
-      const res = await fetch("/.netlify/functions/manageTelegramSettings", {
+    setTelegramSettingsError("");
+
+    const sendPatch = async () =>
+      fetch("/.netlify/functions/manageTelegramSettings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
       });
 
-      if (!res.ok) throw new Error("Failed to update telegram settings");
+    try {
+      let res = await sendPatch();
+      if (!res.ok) {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        res = await sendPatch();
+      }
 
-      const data = await res.json();
+      const responseData = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const backendMessage =
+          typeof responseData?.error === "string"
+            ? responseData.error
+            : typeof responseData?.message === "string"
+              ? responseData.message
+              : "Failed to update telegram settings";
+        throw new Error(backendMessage);
+      }
+
+      const data = responseData;
       if (data?.settings) {
         setTelegramSettings({
           enableTelegramForNewMovies: !!data.settings.enableTelegramForNewMovies,
           enableTelegramGlobally: !!data.settings.enableTelegramGlobally,
+          linkShortenerEnabled: !!data.settings.linkShortenerEnabled,
+          linkShortenerApiKey: data.settings.linkShortenerApiKey || "",
+          linkShortenerApiUrl: data.settings.linkShortenerApiUrl || "",
         });
       }
 
       if (Object.prototype.hasOwnProperty.call(updates, "enableTelegramGlobally")) {
         await fetchMovies();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to update telegram settings:", err);
-      alert("Telegram settings update failed. Please try again.");
+      const message = typeof err?.message === "string" && err.message.trim()
+        ? err.message
+        : "Settings save fail ho gaya. Server ya database temporary issue ho sakta hai. Thodi der baad retry kare.";
+      setTelegramSettingsError(message);
       setTelegramSettings((prev) => ({ ...prev, ...updates }));
     } finally {
       setIsTelegramSettingsSaving(false);
@@ -842,6 +873,51 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           <p className="text-xs mt-3 text-light-text-secondary dark:text-brand-text-secondary">
             Global switch ON/OFF karne par existing sabhi movies ka Telegram option turant update ho jayega.
           </p>
+          <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3">
+            <PermissionToggle
+              label="Download links ke liye Link Shortener enable kare"
+              isChecked={!!telegramSettings.linkShortenerEnabled}
+              onChange={(checked) => {
+                setTelegramSettings((prev) => ({ ...prev, linkShortenerEnabled: checked }));
+                updateTelegramSettings({ linkShortenerEnabled: checked });
+              }}
+            />
+            <div>
+              <label className="block text-sm mb-1 text-light-text dark:text-brand-text">Shortener API URL</label>
+              <input
+                type="text"
+                value={telegramSettings.linkShortenerApiUrl || ""}
+                onChange={(e) => setTelegramSettings((prev) => ({ ...prev, linkShortenerApiUrl: e.target.value }))}
+                placeholder="https://example.com/api"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-sm mb-1 text-light-text dark:text-brand-text">Shortener API Key</label>
+              <input
+                type="password"
+                value={telegramSettings.linkShortenerApiKey || ""}
+                onChange={(e) => setTelegramSettings((prev) => ({ ...prev, linkShortenerApiKey: e.target.value }))}
+                placeholder="API key"
+                className={inputClass}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => updateTelegramSettings({
+                linkShortenerApiUrl: telegramSettings.linkShortenerApiUrl || "",
+                linkShortenerApiKey: telegramSettings.linkShortenerApiKey || "",
+              })}
+              className="bg-brand-primary hover:opacity-90 text-white font-bold py-2 px-4 rounded"
+            >
+              Save Link Shortener
+            </button>
+            {telegramSettingsError && (
+              <p className="text-sm text-red-500">{telegramSettingsError}</p>
+            )}
+            <p className="text-xs text-light-text-secondary dark:text-brand-text-secondary">Sirf 2 setting zaroori hain: API URL aur API Key.</p>
+
+          </div>
         </div>
       )}
 

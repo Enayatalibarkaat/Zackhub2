@@ -63,6 +63,10 @@ export interface Movie {
 export interface TelegramSettings {
   enableTelegramForNewMovies: boolean;
   enableTelegramGlobally: boolean;
+  linkShortenerEnabled?: boolean;
+  linkShortenerName?: string;
+  linkShortenerApiKey?: string;
+  linkShortenerApiUrl?: string;
 }
 
 // --- Admin & Permissions Types ---
