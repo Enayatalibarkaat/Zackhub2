@@ -296,9 +296,18 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         res = await sendPatch();
       }
 
-      if (!res.ok) throw new Error("Failed to update telegram settings");
+      const responseData = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const backendMessage =
+          typeof responseData?.error === "string"
+            ? responseData.error
+            : typeof responseData?.message === "string"
+              ? responseData.message
+              : "Failed to update telegram settings";
+        throw new Error(backendMessage);
+      }
 
-      const data = await res.json();
+      const data = responseData;
       if (data?.settings) {
         setTelegramSettings({
           enableTelegramForNewMovies: !!data.settings.enableTelegramForNewMovies,
@@ -312,9 +321,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       if (Object.prototype.hasOwnProperty.call(updates, "enableTelegramGlobally")) {
         await fetchMovies();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to update telegram settings:", err);
-      setTelegramSettingsError("Settings save fail ho gaya. Server ya database temporary issue ho sakta hai. Thodi der baad retry kare.");
+      const message = typeof err?.message === "string" && err.message.trim()
+        ? err.message
+        : "Settings save fail ho gaya. Server ya database temporary issue ho sakta hai. Thodi der baad retry kare.";
+      setTelegramSettingsError(message);
       setTelegramSettings((prev) => ({ ...prev, ...updates }));
     } finally {
       setIsTelegramSettingsSaving(false);
