@@ -51,7 +51,7 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
     return movie.seasons.reduce((total, season) => total + season.episodes.length, 0);
   };
 
-  const handleDownloadClick = async (e: React.MouseEvent<HTMLAnchorElement>, targetUrl: string) => {
+  const handleOutboundLinkClick = async (e: React.MouseEvent<HTMLAnchorElement>, targetUrl: string) => {
     e.preventDefault();
     try {
       const res = await fetch('/.netlify/functions/shortenLink', {
@@ -100,6 +100,7 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
                   href={`https://t.me/Hubb_for_You_1bot?start=${link.fileId}`}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={(e) => handleOutboundLinkClick(e, `https://t.me/Hubb_for_You_1bot?start=${link.fileId}`)}
                   className="w-full flex items-center justify-center gap-2 text-center bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-[0_0_15px_rgba(56,189,248,0.6)]"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M9.78 18.65l.28-4.23l7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3L3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.57c-.28 1.1-.86 1.32-1.7.82l-4.7-3.45l-2.4 2.3c-.27.27-.5.39-.83.39.35-.39.42-.64.48-.92z"/></svg>
@@ -112,7 +113,7 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
                   href={link.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={(e) => handleDownloadClick(e, link.url)}
+                  onClick={(e) => handleOutboundLinkClick(e, link.url)}
                   className="w-full flex items-center justify-center gap-2 text-center bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-[0_0_15px_rgba(252,71,71,0.6)]"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
@@ -314,13 +315,13 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
                                             </h4>
                                             <div className="flex flex-col gap-2">
                                               {isTelegramVisible && file.telegramLinks.map((link, lIdx) => (
-                                                <a key={lIdx} href={`https://t.me/Hubb_for_You_1bot?start=${link.fileId}`} target="_blank" rel="noopener noreferrer" className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-bold py-2 px-3 rounded transition-all transform hover:scale-[1.02]">
+                                                <a key={lIdx} href={`https://t.me/Hubb_for_You_1bot?start=${link.fileId}`} target="_blank" rel="noopener noreferrer" onClick={(e) => handleOutboundLinkClick(e, `https://t.me/Hubb_for_You_1bot?start=${link.fileId}`)} className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-bold py-2 px-3 rounded transition-all transform hover:scale-[1.02]">
                                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M9.78 18.65l.28-4.23l7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3L3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.57c-.28 1.1-.86 1.32-1.7.82l-4.7-3.45l-2.4 2.3c-.27.27-.5.39-.83.39.35-.39.42-.64.48-.92z"/></svg>
                                                   <span>Telegram {link.quality}</span>
                                                 </a>
                                               ))}
                                               {file.downloadLinks.map((link, lIdx) => (
-                                                <a key={lIdx} href={link.url} target="_blank" rel="noopener noreferrer" onClick={(e) => handleDownloadClick(e, link.url)} className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-2 px-3 rounded transition-all transform hover:scale-[1.02]">
+                                                <a key={lIdx} href={link.url} target="_blank" rel="noopener noreferrer" onClick={(e) => handleOutboundLinkClick(e, link.url)} className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-2 px-3 rounded transition-all transform hover:scale-[1.02]">
                                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                                                   <span>Download {link.quality}</span>
                                                 </a>
@@ -365,6 +366,7 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
                                         href={`https://t.me/Hubb_for_You_1bot?start=${link.fileId}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
+                                        onClick={(e) => handleOutboundLinkClick(e, `https://t.me/Hubb_for_You_1bot?start=${link.fileId}`)}
                                         className="flex items-center justify-center gap-3 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white text-xl font-bold py-4 px-10 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-[0_0_15px_rgba(56,189,248,0.6)]"
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M9.78 18.65l.28-4.23l7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3L3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.57c-.28 1.1-.86 1.32-1.7.82l-4.7-3.45l-2.4 2.3c-.27.27-.5.39-.83.39.35-.39.42-.64.48-.92z"/></svg>
@@ -377,7 +379,7 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
                                         href={link.url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        onClick={(e) => handleDownloadClick(e, link.url)}
+                                        onClick={(e) => handleOutboundLinkClick(e, link.url)}
                                         className="flex items-center justify-center gap-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white text-xl font-bold py-4 px-10 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-[0_0_15px_rgba(252,71,71,0.6)]"
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 20 20" fill="currentColor">

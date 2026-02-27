@@ -74,7 +74,7 @@ export const handler = async (event) => {
 
       const settings = await Settings.findOneAndUpdate(
         { key: SETTINGS_KEY },
-        { $set: updates, $setOnInsert: getDefaultSettings() },
+        { $set: updates, $setOnInsert: { key: SETTINGS_KEY } },
         { new: true, upsert: true }
       );
 
