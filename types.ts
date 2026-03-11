@@ -56,6 +56,8 @@ export interface Movie {
   backdropUrl?: string;
   isRecommended?: boolean; // <--- NEW: Ye line add ki hai
   showTelegramFiles?: boolean;
+  screenshots?: string[];
+  screenshot_preview_links?: string[];
   screenshotLinks?: string[];
   screenshot_links?: string[];
 }
