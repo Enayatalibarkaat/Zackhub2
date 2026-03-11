@@ -132,7 +132,17 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
   const hasTelegramLink = isTelegramVisible && movie.telegramLinks && movie.telegramLinks.length > 0;
   const hasDirectLinks = movie.downloadLinks && movie.downloadLinks.length > 0;
 
-  const screenshotLinks = (((movie as any).screenshot_links || (movie as any).screenshotLinks || []) as string[]).filter(Boolean);
+  const toViewLink = (url: string) => url.replace('/dl/', '/view/');
+  const screenshots = (((movie as any).screenshots || []) as string[]).filter(Boolean);
+  const screenshotPreviewLinks = (((movie as any).screenshot_preview_links || []) as string[]).filter(Boolean);
+  const screenshotLinks = (((movie as any).screenshot_links || (movie as any).screenshotLinks || []) as string[])
+    .filter(Boolean)
+    .map(toViewLink);
+  const resolvedScreenshotLinks = screenshots.length > 0
+    ? screenshots
+    : screenshotPreviewLinks.length > 0
+      ? screenshotPreviewLinks
+      : screenshotLinks;
 
   return (
     <>
@@ -262,17 +272,20 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
                     </div>
                 </div>
 
-                {screenshotLinks.length > 0 && (
+                {resolvedScreenshotLinks.length > 0 && (
                     <div className="mb-10">
                         <h2 className="text-2xl font-bold text-light-text dark:text-brand-text mb-4">: Screen-Shots :</h2>
-                        <div className="overflow-hidden rounded-lg">
-                            {screenshotLinks.map((shot, index) => (
+                        <div className="overflow-hidden rounded-lg m-0 p-0 leading-none">
+                            {resolvedScreenshotLinks.map((shot, index) => (
                                 <img
                                     key={`${movie.id || movie._id || movie.title}-shot-${index}`}
                                     src={shot}
                                     alt={`${movie.title} screenshot ${index + 1}`}
-                                    className="w-full h-auto block"
+                                    className="w-full h-auto block m-0 p-0 leading-none"
                                     loading="lazy"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                    }}
                                 />
                             ))}
                         </div>
