@@ -58,6 +58,7 @@ export interface Movie {
   showTelegramFiles?: boolean;
   screenshots?: string[];
   screenshot_preview_links?: string[];
+  screenshotPreviewLinks?: string[];
   screenshotLinks?: string[];
   screenshot_links?: string[];
 }

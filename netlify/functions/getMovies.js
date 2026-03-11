@@ -9,9 +9,38 @@ const normalizeKey = (value = "") =>
     .trim()
     .replace(/\s+/g, " ");
 
+const normalizeScreenshotEntries = (raw = []) => {
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .map((item) => {
+      if (typeof item === "string") return item;
+      if (!item || typeof item !== "object") return "";
+
+      return (
+        item.url ||
+        item.link ||
+        item.href ||
+        item.preview ||
+        item.preview_link ||
+        item.previewLink ||
+        ""
+      );
+    })
+    .filter(Boolean);
+};
+
 const extractScreenshotLinks = (doc = {}) => {
-  const raw = doc.screenshot_links || doc.screenshotLinks || [];
-  return Array.isArray(raw) ? raw.filter(Boolean) : [];
+  const screenshots = normalizeScreenshotEntries(doc.screenshots || []);
+  if (screenshots.length) return screenshots;
+
+  const previewLinks = normalizeScreenshotEntries(doc.screenshot_preview_links || doc.screenshotPreviewLinks || []);
+  if (previewLinks.length) return previewLinks;
+
+  const rawLinks = normalizeScreenshotEntries(doc.screenshot_links || doc.screenshotLinks || []);
+  if (!rawLinks.length) return [];
+
+  return rawLinks.map((link) => (typeof link === "string" ? link.replace('/dl/', '/view/') : link));
 };
 
 const findBestScreenshotMatch = (movie, screenshotMap) => {
@@ -57,6 +86,8 @@ const collectScreenshotMap = async (db) => {
       .find(
         {
           $or: [
+            { screenshots: { $exists: true, $ne: [] } },
+            { screenshot_preview_links: { $exists: true, $ne: [] } },
             { screenshot_links: { $exists: true, $ne: [] } },
             { screenshotLinks: { $exists: true, $ne: [] } },
           ],
@@ -66,6 +97,8 @@ const collectScreenshotMap = async (db) => {
             movie_key: 1,
             title: 1,
             _id: 1,
+            screenshots: 1,
+            screenshot_preview_links: 1,
             screenshot_links: 1,
             screenshotLinks: 1,
           },
