@@ -132,7 +132,28 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
   const hasTelegramLink = isTelegramVisible && movie.telegramLinks && movie.telegramLinks.length > 0;
   const hasDirectLinks = movie.downloadLinks && movie.downloadLinks.length > 0;
 
-  const screenshotLinks = (((movie as any).screenshot_links || (movie as any).screenshotLinks || []) as string[]).filter(Boolean);
+  const toViewLink = (url: string) => url.replace('/dl/', '/view/');
+  const normalizeScreenshotItems = (items: any[]): string[] => {
+    if (!Array.isArray(items)) return [];
+
+    return items
+      .map((item) => {
+        if (typeof item === 'string') return item;
+        if (!item || typeof item !== 'object') return '';
+        return item.url || item.link || item.href || item.preview || item.preview_link || item.previewLink || '';
+      })
+      .filter(Boolean);
+  };
+
+  const screenshots = normalizeScreenshotItems((movie as any).screenshots || []);
+  const screenshotPreviewLinks = normalizeScreenshotItems((movie as any).screenshot_preview_links || (movie as any).screenshotPreviewLinks || []);
+  const screenshotLinks = normalizeScreenshotItems((movie as any).screenshot_links || (movie as any).screenshotLinks || [])
+    .map(toViewLink);
+  const resolvedScreenshotLinks = screenshots.length > 0
+    ? screenshots
+    : screenshotPreviewLinks.length > 0
+      ? screenshotPreviewLinks
+      : screenshotLinks;
 
   return (
     <>
@@ -262,23 +283,6 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
                     </div>
                 </div>
 
-                {screenshotLinks.length > 0 && (
-                    <div className="mb-10">
-                        <h2 className="text-2xl font-bold text-light-text dark:text-brand-text mb-4">: Screen-Shots :</h2>
-                        <div className="overflow-hidden rounded-lg">
-                            {screenshotLinks.map((shot, index) => (
-                                <img
-                                    key={`${movie.id || movie._id || movie.title}-shot-${index}`}
-                                    src={shot}
-                                    alt={`${movie.title} screenshot ${index + 1}`}
-                                    className="w-full h-auto block"
-                                    loading="lazy"
-                                />
-                            ))}
-                        </div>
-                    </div>
-                )}
-
                 {movie.trailerLink && (
                     <div className="mb-10">
                         <h2 className="text-2xl font-bold text-light-text dark:text-brand-text mb-4">Watch Trailer</h2>
@@ -357,6 +361,25 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
                     </div>
                 ) : (
                     <div>
+                        {resolvedScreenshotLinks.length > 0 && (
+                            <div className="mb-10">
+                                <h2 className="text-2xl font-bold text-light-text dark:text-brand-text mb-4">: Screen-Shots :</h2>
+                                <div className="overflow-hidden rounded-lg m-0 p-0 leading-none">
+                                    {resolvedScreenshotLinks.map((shot, index) => (
+                                        <img
+                                            key={`${movie.id || movie._id || movie.title}-shot-${index}`}
+                                            src={shot}
+                                            alt={`${movie.title} screenshot ${index + 1}`}
+                                            className="w-full h-auto block m-0 p-0 leading-none"
+                                            loading="lazy"
+                                            onError={(e) => {
+                                              e.currentTarget.style.display = 'none';
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         <h2 className="text-3xl font-bold text-light-text dark:text-brand-text mb-4">Actions</h2>
                         {hasTelegramLink || hasDirectLinks ? (
                             <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6">
