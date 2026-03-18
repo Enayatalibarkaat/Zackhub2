@@ -43,35 +43,30 @@ const extractScreenshotLinks = (doc = {}) => {
   return rawLinks.map((link) => (typeof link === "string" ? link.replace('/dl/', '/view/') : link));
 };
 
-const findBestScreenshotMatch = (movie, screenshotMap) => {
-  const titleKey = normalizeKey(movie?.title || "");
-  const movieIdStr = movie?._id?.toString?.() || movie?._id || "";
-  
-  if (!titleKey && !movieIdStr) return null;
+const fetchScreenshotsFromFileToStream = async (movieTitle) => {
+  try {
+    const movieKey = normalizeKey(movieTitle);
+    if (!movieKey) return null;
 
-  // Try exact match with title
-  if (titleKey && screenshotMap.has(titleKey)) return screenshotMap.get(titleKey);
-  
-  // Try match with movie ID
-  if (movieIdStr && screenshotMap.has(movieIdStr)) return screenshotMap.get(movieIdStr);
+    const response = await fetch(
+      `https://file-to-stream-m1.onrender.com/screenshots/${encodeURIComponent(movieKey)}`,
+      { timeout: 5000 }
+    );
 
-  const titleTokens = titleKey.split(" ").filter(Boolean);
-  for (const [key, links] of screenshotMap.entries()) {
-    if (!key || !links?.length) continue;
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const screenshots = normalizeScreenshotEntries(data.screenshots || []);
     
-    // Check if key matches title
-    if (titleKey && (key.includes(titleKey) || titleKey.includes(key))) return links;
-    
-    // Check token match
-    if (titleKey) {
-      const tokenMatchCount = titleTokens.filter((t) => key.includes(t)).length;
-      if (tokenMatchCount >= Math.max(2, Math.floor(titleTokens.length * 0.6))) {
-        return links;
-      }
+    if (screenshots.length > 0) {
+      return screenshots;
     }
-  }
 
-  return null;
+    return null;
+  } catch (error) {
+    console.warn(`Screenshot fetch failed for "${movieTitle}":`, error?.message);
+    return null;
+  }
 };
 
 const collectScreenshotMap = async (db) => {
@@ -138,7 +133,6 @@ const collectScreenshotMap = async (db) => {
 };
 
 export const handler = async (event, context) => {
-  // --- SMART CACHING HEADERS ---
   const headers = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
@@ -146,7 +140,6 @@ export const handler = async (event, context) => {
     "Cache-Control": "public, s-maxage=60, stale-while-revalidate=600"
   };
 
-  // Handle Preflight requests
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 200, headers, body: "OK" };
   }
@@ -155,7 +148,6 @@ export const handler = async (event, context) => {
     const connection = await connect();
     const db = connection.db;
     
-    // Data fetch query
     const movies = await Movie.find()
       .sort({ createdAt: -1 })
       .lean();
@@ -167,27 +159,57 @@ export const handler = async (event, context) => {
       console.warn("Screenshot lookup skipped:", lookupError?.message || lookupError);
     }
 
-    const enrichedMovies = movies.map((movie) => {
-      const existing = extractScreenshotLinks(movie);
-      if (existing.length) {
-        return {
-          ...movie,
-          screenshots: existing,
-          screenshot_links: existing,
-          screenshot_preview_links: existing,
-        };
-      }
+    const enrichedMovies = await Promise.all(
+      movies.map(async (movie) => {
+        // Check if movie already has screenshots
+        const existing = extractScreenshotLinks(movie);
+        if (existing.length) {
+          return {
+            ...movie,
+            screenshots: existing,
+            screenshot_links: existing,
+            screenshot_preview_links: existing,
+          };
+        }
 
-      const matched = findBestScreenshotMatch(movie, screenshotMap);
-      if (!matched?.length) return movie;
+        // Try to fetch from file-to-stream-m1 API
+        const fileToStreamScreenshots = await fetchScreenshotsFromFileToStream(movie.title);
+        if (fileToStreamScreenshots && fileToStreamScreenshots.length > 0) {
+          return {
+            ...movie,
+            screenshots: fileToStreamScreenshots,
+            screenshot_links: fileToStreamScreenshots,
+            screenshot_preview_links: fileToStreamScreenshots,
+          };
+        }
 
-      return {
-        ...movie,
-        screenshots: matched,
-        screenshot_links: matched,
-        screenshot_preview_links: matched,
-      };
-    });
+        // Fallback to local screenshot map
+        const titleKey = normalizeKey(movie?.title || "");
+        const movieIdStr = movie?._id?.toString?.() || movie?._id || "";
+        
+        if (titleKey && screenshotMap.has(titleKey)) {
+          const matched = screenshotMap.get(titleKey);
+          return {
+            ...movie,
+            screenshots: matched,
+            screenshot_links: matched,
+            screenshot_preview_links: matched,
+          };
+        }
+
+        if (movieIdStr && screenshotMap.has(movieIdStr)) {
+          const matched = screenshotMap.get(movieIdStr);
+          return {
+            ...movie,
+            screenshots: matched,
+            screenshot_links: matched,
+            screenshot_preview_links: matched,
+          };
+        }
+
+        return movie;
+      })
+    );
 
     return {
       statusCode: 200,
