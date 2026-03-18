@@ -45,18 +45,29 @@ const extractScreenshotLinks = (doc = {}) => {
 
 const findBestScreenshotMatch = (movie, screenshotMap) => {
   const titleKey = normalizeKey(movie?.title || "");
-  if (!titleKey) return null;
+  const movieIdStr = movie?._id?.toString?.() || movie?._id || "";
+  
+  if (!titleKey && !movieIdStr) return null;
 
-  if (screenshotMap.has(titleKey)) return screenshotMap.get(titleKey);
+  // Try exact match with title
+  if (titleKey && screenshotMap.has(titleKey)) return screenshotMap.get(titleKey);
+  
+  // Try match with movie ID
+  if (movieIdStr && screenshotMap.has(movieIdStr)) return screenshotMap.get(movieIdStr);
 
   const titleTokens = titleKey.split(" ").filter(Boolean);
   for (const [key, links] of screenshotMap.entries()) {
     if (!key || !links?.length) continue;
-    if (key.includes(titleKey) || titleKey.includes(key)) return links;
-
-    const tokenMatchCount = titleTokens.filter((t) => key.includes(t)).length;
-    if (tokenMatchCount >= Math.max(2, Math.floor(titleTokens.length * 0.6))) {
-      return links;
+    
+    // Check if key matches title
+    if (titleKey && (key.includes(titleKey) || titleKey.includes(key))) return links;
+    
+    // Check token match
+    if (titleKey) {
+      const tokenMatchCount = titleTokens.filter((t) => key.includes(t)).length;
+      if (tokenMatchCount >= Math.max(2, Math.floor(titleTokens.length * 0.6))) {
+        return links;
+      }
     }
   }
 
@@ -110,7 +121,11 @@ const collectScreenshotMap = async (db) => {
       const links = extractScreenshotLinks(doc);
       if (!links.length) continue;
 
-      const possibleKeys = [doc.movie_key, doc.title, typeof doc._id === "string" ? doc._id : ""];
+      const possibleKeys = [
+        doc.movie_key, 
+        doc.title, 
+        typeof doc._id === "string" ? doc._id : doc._id?.toString?.() || ""
+      ];
       for (const key of possibleKeys) {
         const normalized = normalizeKey(key || "");
         if (!normalized || screenshotMap.has(normalized)) continue;
@@ -128,9 +143,6 @@ export const handler = async (event, context) => {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
     "Content-Type": "application/json",
-    // s-maxage=60: 60 second tak data super fast load hoga (Cache se).
-    // stale-while-revalidate=600: Agar 60 sec se purana data hai, to user ko wahi dikhao 
-    // lekin background me chupke se naya data update kar lo.
     "Cache-Control": "public, s-maxage=60, stale-while-revalidate=600"
   };
 
@@ -146,7 +158,7 @@ export const handler = async (event, context) => {
     // Data fetch query
     const movies = await Movie.find()
       .sort({ createdAt: -1 })
-      .lean(); // .lean() makes it faster
+      .lean();
 
     let screenshotMap = new Map();
     try {
