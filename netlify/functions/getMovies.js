@@ -157,14 +157,23 @@ export const handler = async (event, context) => {
 
     const enrichedMovies = movies.map((movie) => {
       const existing = extractScreenshotLinks(movie);
-      if (existing.length) return movie;
+      if (existing.length) {
+        return {
+          ...movie,
+          screenshots: existing,
+          screenshot_links: existing,
+          screenshot_preview_links: existing,
+        };
+      }
 
       const matched = findBestScreenshotMatch(movie, screenshotMap);
       if (!matched?.length) return movie;
 
       return {
         ...movie,
+        screenshots: matched,
         screenshot_links: matched,
+        screenshot_preview_links: matched,
       };
     });
 
