@@ -57,8 +57,9 @@ const MovieSchema = new mongoose.Schema(
     showTelegramFiles: { type: Boolean, default: false },
     screenshots: [String],
     screenshot_preview_links: [String],
-    screenshotLinks: [String],
     screenshot_links: [String],
+    screenshotLinks: [String],
+    screenshotPreviewLinks: [String],
   },
   { timestamps: true }
 );
