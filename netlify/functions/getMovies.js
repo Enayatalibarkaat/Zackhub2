@@ -1,163 +1,78 @@
 import { connect } from "./connect.js";
 import Movie from "./moviesSchema.js";
 
-const normalizeKey = (value = "") =>
-  value
+const normalizeKey = (value = "") => {
+  if (!value) return "";
+  return value
     .toLowerCase()
-    .replace(/\.(mkv|mp4|avi|mov)$/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\.(mkv|mp4|avi|mov|webm)$/gi, "")
+    .replace(/[^a-z0-9\s]/g, " ")
     .trim()
     .replace(/\s+/g, " ");
-
-const normalizeScreenshotEntries = (raw = []) => {
-  if (!Array.isArray(raw)) return [];
-
-  return raw
-    .map((item) => {
-      if (typeof item === "string") return item;
-      if (!item || typeof item !== "object") return "";
-
-      return (
-        item.url ||
-        item.link ||
-        item.href ||
-        item.preview ||
-        item.preview_link ||
-        item.previewLink ||
-        ""
-      );
-    })
-    .filter(Boolean);
 };
 
 const extractScreenshotLinks = (doc = {}) => {
-  const screenshots = normalizeScreenshotEntries(doc.screenshots || []);
-  if (screenshots.length) return screenshots;
-
-  const previewLinks = normalizeScreenshotEntries(doc.screenshot_preview_links || doc.screenshotPreviewLinks || []);
-  if (previewLinks.length) return previewLinks;
-
-  const rawLinks = normalizeScreenshotEntries(doc.screenshot_links || doc.screenshotLinks || []);
-  if (!rawLinks.length) return [];
-
-  return rawLinks.map((link) => (typeof link === "string" ? link.replace('/dl/', '/view/') : link));
+  if (!doc) return [];
+  
+  // Try screenshots first
+  if (Array.isArray(doc.screenshots) && doc.screenshots.length > 0) {
+    return doc.screenshots.filter(s => typeof s === "string" && s.trim());
+  }
+  
+  // Try screenshot_preview_links
+  if (Array.isArray(doc.screenshot_preview_links) && doc.screenshot_preview_links.length > 0) {
+    return doc.screenshot_preview_links.filter(s => typeof s === "string" && s.trim());
+  }
+  
+  // Try screenshot_links
+  if (Array.isArray(doc.screenshot_links) && doc.screenshot_links.length > 0) {
+    return doc.screenshot_links.filter(s => typeof s === "string" && s.trim());
+  }
+  
+  return [];
 };
 
-const findBestScreenshotMatch = (movie, screenshotMap) => {
-  const titleKey = normalizeKey(movie?.title || "");
-  const movieIdStr = movie?._id?.toString?.() || movie?._id || "";
+const findBestMatch = (movieTitle, screenshotDocs) => {
+  if (!movieTitle || !screenshotDocs || screenshotDocs.length === 0) return null;
   
-  if (!titleKey && !movieIdStr) return null;
-
-  // Try exact match with title
-  if (titleKey && screenshotMap.has(titleKey)) {
-    return screenshotMap.get(titleKey);
-  }
+  const normalizedTitle = normalizeKey(movieTitle);
+  if (!normalizedTitle) return null;
   
-  // Try match with movie ID
-  if (movieIdStr && screenshotMap.has(movieIdStr)) {
-    return screenshotMap.get(movieIdStr);
-  }
-
-  // Try fuzzy matching with tokens
-  const titleTokens = titleKey.split(" ").filter(Boolean);
+  const titleWords = normalizedTitle.split(" ").filter(w => w.length > 2);
+  
   let bestMatch = null;
   let bestScore = 0;
-
-  for (const [key, links] of screenshotMap.entries()) {
-    if (!key || !links?.length) continue;
+  
+  for (const doc of screenshotDocs) {
+    const docKey = normalizeKey(doc.movie_key || doc.title || "");
+    if (!docKey) continue;
     
-    // Exact substring match
-    if (titleKey && (key.includes(titleKey) || titleKey.includes(key))) {
-      return links;
+    // Exact match
+    if (docKey === normalizedTitle) {
+      return extractScreenshotLinks(doc);
     }
     
-    // Token-based matching
-    if (titleKey) {
-      const keyTokens = key.split(" ").filter(Boolean);
-      const matchingTokens = titleTokens.filter((t) => keyTokens.some(kt => kt.includes(t) || t.includes(kt)));
-      const score = matchingTokens.length;
-      
-      if (score > bestScore && score >= Math.max(2, Math.floor(titleTokens.length * 0.5))) {
-        bestScore = score;
-        bestMatch = links;
-      }
+    // Substring match
+    if (normalizedTitle.includes(docKey) || docKey.includes(normalizedTitle)) {
+      return extractScreenshotLinks(doc);
+    }
+    
+    // Word-based matching
+    const docWords = docKey.split(" ").filter(w => w.length > 2);
+    const matchingWords = titleWords.filter(tw => 
+      docWords.some(dw => dw.includes(tw) || tw.includes(dw))
+    );
+    
+    const score = matchingWords.length;
+    const minRequiredMatch = Math.max(2, Math.floor(titleWords.length * 0.4));
+    
+    if (score >= minRequiredMatch && score > bestScore) {
+      bestScore = score;
+      bestMatch = extractScreenshotLinks(doc);
     }
   }
-
+  
   return bestMatch;
-};
-
-const collectScreenshotMap = async (db) => {
-  const configured = (process.env.SCREENSHOT_COLLECTIONS || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  const fallbackCollections = ["movie_screenshots", "telegram_files", "movie_files", "downloads", "links", "files"];
-  const collectionNames = configured.length ? configured : fallbackCollections;
-
-  const existingCollections = new Set(
-    (await db.listCollections({}, { nameOnly: true }).toArray()).map((c) => c.name)
-  );
-
-  const screenshotMap = new Map();
-
-  for (const name of collectionNames) {
-    if (!existingCollections.has(name)) continue;
-
-    try {
-      const docs = await db
-        .collection(name)
-        .find(
-          {
-            $or: [
-              { screenshots: { $exists: true, $ne: [] } },
-              { screenshot_preview_links: { $exists: true, $ne: [] } },
-              { screenshot_links: { $exists: true, $ne: [] } },
-              { screenshotLinks: { $exists: true, $ne: [] } },
-            ],
-          },
-          {
-            projection: {
-              movie_key: 1,
-              title: 1,
-              _id: 1,
-              screenshots: 1,
-              screenshot_preview_links: 1,
-              screenshot_links: 1,
-              screenshotLinks: 1,
-            },
-          }
-        )
-        .toArray();
-
-      for (const doc of docs) {
-        const links = extractScreenshotLinks(doc);
-        if (!links.length) continue;
-
-        const possibleKeys = [
-          doc.movie_key, 
-          doc.title, 
-          typeof doc._id === "string" ? doc._id : doc._id?.toString?.() || ""
-        ];
-        
-        for (const key of possibleKeys) {
-          const normalized = normalizeKey(key || "");
-          if (!normalized) continue;
-          
-          // Store multiple variations for better matching
-          if (!screenshotMap.has(normalized)) {
-            screenshotMap.set(normalized, links);
-          }
-        }
-      }
-    } catch (collectionError) {
-      console.warn(`Error reading collection ${name}:`, collectionError?.message);
-    }
-  }
-
-  return screenshotMap;
 };
 
 export const handler = async (event, context) => {
@@ -176,22 +91,45 @@ export const handler = async (event, context) => {
     const connection = await connect();
     const db = connection.db;
     
+    // Fetch all movies
     const movies = await Movie.find()
       .sort({ createdAt: -1 })
       .lean();
 
-    let screenshotMap = new Map();
-    try {
-      screenshotMap = await collectScreenshotMap(db);
-      console.log(`Screenshot map loaded with ${screenshotMap.size} entries`);
-    } catch (lookupError) {
-      console.warn("Screenshot lookup failed:", lookupError?.message || lookupError);
+    // Try to fetch screenshot documents from multiple possible collections
+    let screenshotDocs = [];
+    const possibleCollections = ["movie_screenshots", "telegram_files", "movie_files", "downloads"];
+    
+    for (const collName of possibleCollections) {
+      try {
+        const collections = await db.listCollections({}, { nameOnly: true }).toArray();
+        const collExists = collections.some(c => c.name === collName);
+        
+        if (collExists) {
+          const docs = await db.collection(collName).find({
+            $or: [
+              { screenshots: { $exists: true, $ne: [] } },
+              { screenshot_preview_links: { $exists: true, $ne: [] } },
+              { screenshot_links: { $exists: true, $ne: [] } }
+            ]
+          }).toArray();
+          
+          if (docs.length > 0) {
+            screenshotDocs = docs;
+            console.log(`Found ${docs.length} screenshot documents in collection: ${collName}`);
+            break;
+          }
+        }
+      } catch (err) {
+        console.warn(`Error checking collection ${collName}:`, err.message);
+      }
     }
 
+    // Enrich movies with screenshots
     const enrichedMovies = movies.map((movie) => {
       // Check if movie already has screenshots
       const existing = extractScreenshotLinks(movie);
-      if (existing.length) {
+      if (existing.length > 0) {
         return {
           ...movie,
           screenshots: existing,
@@ -200,8 +138,8 @@ export const handler = async (event, context) => {
         };
       }
 
-      // Try to find matching screenshots from the map
-      const matched = findBestScreenshotMatch(movie, screenshotMap);
+      // Try to find matching screenshots
+      const matched = findBestMatch(movie.title, screenshotDocs);
       if (matched && matched.length > 0) {
         return {
           ...movie,
