@@ -1,14 +1,28 @@
 import { connect } from "./connect.js";
 import Movie from "./moviesSchema.js";
 
-const normalizeKey = (value = "") => {
+// Same pattern as the bot uses
+const STRIP_TOKENS_PATTERN = /\b(2160p|1440p|1080p|720p|480p|360p|240p|x264|x265|hevc|hdrip|webrip|web[- ]?dl|bluray|dvdrip|10bit|8bit|esubs|dual[- ]?audio|amzn|nf|hindi|english|tamil|telugu|malayalam)\b/gi;
+
+const normalizeMovieKey = (value = "") => {
   if (!value) return "";
-  return value
+  
+  // Same logic as bot's extract_movie_key function
+  let source = value
     .toLowerCase()
-    .replace(/\.(mkv|mp4|avi|mov|webm)$/gi, "")
-    .replace(/[^a-z0-9\s]/g, " ")
-    .trim()
-    .replace(/\s+/g, " ");
+    .replace(/_/g, " ")
+    .replace(/\./g, " ");
+  
+  // Remove quality tokens
+  source = source.replace(STRIP_TOKENS_PATTERN, " ");
+  
+  // Remove resolution patterns
+  source = source.replace(/\b\d{3,4}p\b/g, " ");
+  
+  // Normalize spaces
+  source = source.replace(/\s+/g, " ").trim();
+  
+  return source.substring(0, 120) || "unknown_movie";
 };
 
 const extractScreenshotLinks = (doc = {}) => {
@@ -32,47 +46,39 @@ const extractScreenshotLinks = (doc = {}) => {
   return [];
 };
 
-const findBestMatch = (movieTitle, screenshotDocs) => {
+const findScreenshotsForMovie = (movieTitle, screenshotDocs) => {
   if (!movieTitle || !screenshotDocs || screenshotDocs.length === 0) return null;
   
-  const normalizedTitle = normalizeKey(movieTitle);
+  // Normalize the movie title using the same logic as the bot
+  const normalizedTitle = normalizeMovieKey(movieTitle);
   if (!normalizedTitle) return null;
   
-  const titleWords = normalizedTitle.split(" ").filter(w => w.length > 2);
+  console.log(`Looking for screenshots for: "${movieTitle}" -> "${normalizedTitle}"`);
   
-  let bestMatch = null;
-  let bestScore = 0;
-  
+  // Try to find exact match or close match
   for (const doc of screenshotDocs) {
-    const docKey = normalizeKey(doc.movie_key || doc.title || "");
-    if (!docKey) continue;
+    const docKey = doc.movie_key || doc._id || "";
+    const normalizedDocKey = normalizeMovieKey(docKey);
+    
+    if (!normalizedDocKey) continue;
+    
+    console.log(`Comparing with: "${docKey}" -> "${normalizedDocKey}"`);
     
     // Exact match
-    if (docKey === normalizedTitle) {
+    if (normalizedTitle === normalizedDocKey) {
+      console.log(`✓ EXACT MATCH FOUND!`);
       return extractScreenshotLinks(doc);
     }
     
     // Substring match
-    if (normalizedTitle.includes(docKey) || docKey.includes(normalizedTitle)) {
+    if (normalizedTitle.includes(normalizedDocKey) || normalizedDocKey.includes(normalizedTitle)) {
+      console.log(`✓ SUBSTRING MATCH FOUND!`);
       return extractScreenshotLinks(doc);
-    }
-    
-    // Word-based matching
-    const docWords = docKey.split(" ").filter(w => w.length > 2);
-    const matchingWords = titleWords.filter(tw => 
-      docWords.some(dw => dw.includes(tw) || tw.includes(dw))
-    );
-    
-    const score = matchingWords.length;
-    const minRequiredMatch = Math.max(2, Math.floor(titleWords.length * 0.4));
-    
-    if (score >= minRequiredMatch && score > bestScore) {
-      bestScore = score;
-      bestMatch = extractScreenshotLinks(doc);
     }
   }
   
-  return bestMatch;
+  console.log(`✗ No match found for: "${normalizedTitle}"`);
+  return null;
 };
 
 export const handler = async (event, context) => {
@@ -91,45 +97,33 @@ export const handler = async (event, context) => {
     const connection = await connect();
     const db = connection.db;
     
-    // Fetch all movies
+    // Fetch all movies from moviesdb
     const movies = await Movie.find()
       .sort({ createdAt: -1 })
       .lean();
 
-    // Try to fetch screenshot documents from multiple possible collections
+    console.log(`Fetched ${movies.length} movies from moviesdb`);
+
+    // Fetch all screenshot documents from movie_screenshots collection
     let screenshotDocs = [];
-    const possibleCollections = ["movie_screenshots", "telegram_files", "movie_files", "downloads"];
-    
-    for (const collName of possibleCollections) {
-      try {
-        const collections = await db.listCollections({}, { nameOnly: true }).toArray();
-        const collExists = collections.some(c => c.name === collName);
-        
-        if (collExists) {
-          const docs = await db.collection(collName).find({
-            $or: [
-              { screenshots: { $exists: true, $ne: [] } },
-              { screenshot_preview_links: { $exists: true, $ne: [] } },
-              { screenshot_links: { $exists: true, $ne: [] } }
-            ]
-          }).toArray();
-          
-          if (docs.length > 0) {
-            screenshotDocs = docs;
-            console.log(`Found ${docs.length} screenshot documents in collection: ${collName}`);
-            break;
-          }
-        }
-      } catch (err) {
-        console.warn(`Error checking collection ${collName}:`, err.message);
+    try {
+      const collections = await db.listCollections({}, { nameOnly: true }).toArray();
+      const hasScreenshotCollection = collections.some(c => c.name === "movie_screenshots");
+      
+      if (hasScreenshotCollection) {
+        screenshotDocs = await db.collection("movie_screenshots").find({}).toArray();
+        console.log(`Fetched ${screenshotDocs.length} screenshot documents from movie_screenshots collection`);
       }
+    } catch (err) {
+      console.warn("Error fetching screenshot collection:", err.message);
     }
 
     // Enrich movies with screenshots
     const enrichedMovies = movies.map((movie) => {
-      // Check if movie already has screenshots
+      // Check if movie already has screenshots in moviesdb
       const existing = extractScreenshotLinks(movie);
       if (existing.length > 0) {
+        console.log(`Movie "${movie.title}" already has ${existing.length} screenshots in moviesdb`);
         return {
           ...movie,
           screenshots: existing,
@@ -138,9 +132,10 @@ export const handler = async (event, context) => {
         };
       }
 
-      // Try to find matching screenshots
-      const matched = findBestMatch(movie.title, screenshotDocs);
+      // Try to find matching screenshots from movie_screenshots collection
+      const matched = findScreenshotsForMovie(movie.title, screenshotDocs);
       if (matched && matched.length > 0) {
+        console.log(`✓ Found ${matched.length} screenshots for "${movie.title}"`);
         return {
           ...movie,
           screenshots: matched,
@@ -149,6 +144,7 @@ export const handler = async (event, context) => {
         };
       }
 
+      console.log(`✗ No screenshots found for "${movie.title}"`);
       return movie;
     });
 
