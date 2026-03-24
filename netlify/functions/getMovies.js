@@ -55,47 +55,53 @@ export const handler = async (event, context) => {
       if (movieScreenshots.length === 0) {
         // Collect all potential IDs from the movie
         const movieIds = new Set();
+        
+        // 1. Check movie.downloadLinks
         if (movie.downloadLinks) {
           movie.downloadLinks.forEach((link) => {
             const id = extractStorageId(link.url);
-            if (id) movieIds.add(id);
+            if (id) movieIds.add(String(id));
           });
         }
+        
+        // 2. Check movie.telegramLinks
         if (movie.telegramLinks) {
           movie.telegramLinks.forEach((link) => {
-            if (link.fileId) movieIds.add(link.fileId);
+            if (link.fileId) movieIds.add(String(link.fileId));
           });
         }
 
-        // Check seasons for webseries
+        // 3. Check seasons for TV shows (episodes and full season files)
         if (movie.seasons) {
           movie.seasons.forEach((season) => {
+            // Check full season files
             if (season.fullSeasonFiles) {
               season.fullSeasonFiles.forEach((file) => {
                 file.downloadLinks?.forEach((link) => {
                   const id = extractStorageId(link.url);
-                  if (id) movieIds.add(id);
+                  if (id) movieIds.add(String(id));
                 });
                 file.telegramLinks?.forEach((link) => {
-                  if (link.fileId) movieIds.add(link.fileId);
+                  if (link.fileId) movieIds.add(String(link.fileId));
                 });
               });
             }
+            // Check individual episodes
             if (season.episodes) {
               season.episodes.forEach((episode) => {
                 episode.downloadLinks?.forEach((link) => {
                   const id = extractStorageId(link.url);
-                  if (id) movieIds.add(id);
+                  if (id) movieIds.add(String(id));
                 });
                 episode.telegramLinks?.forEach((link) => {
-                  if (link.fileId) movieIds.add(link.fileId);
+                  if (link.fileId) movieIds.add(String(link.fileId));
                 });
               });
             }
           });
         }
 
-        // Match with screenshotDocs
+        // Match with screenshotDocs using source_message_id
         for (const doc of screenshotDocs) {
           if (doc.source_message_id && movieIds.has(String(doc.source_message_id))) {
             movieScreenshots = extractScreenshotLinks(doc);
