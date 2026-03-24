@@ -87,20 +87,15 @@ export const handler = async (event, context) => {
         }
       }
 
-      // CRITICAL FIX: React frontend needs 'id', not '_id'
-      return { 
-        ...movie, 
-        id: movie._id ? String(movie._id) : movie.id,
-        _id: undefined,
-        screenshots: movieScreenshots 
-      };
+      // EXACTLY AS IT WAS BEFORE
+      return { ...movie, screenshots: movieScreenshots };
     });
 
     return {
       statusCode: 200,
       headers,
-      // CRITICAL FIX: Return array directly so client-api.ts doesn't crash
-      body: JSON.stringify(enrichedMovies),
+      // EXACTLY AS IT WAS BEFORE
+      body: JSON.stringify({ movies: enrichedMovies }),
     };
   } catch (error) {
     console.error("[CRITICAL ERROR]:", error);
