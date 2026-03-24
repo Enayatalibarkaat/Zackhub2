@@ -52,69 +52,70 @@ export const handler = async (event, context) => {
     const enrichedMovies = movies.map((movie) => {
       let movieScreenshots = extractScreenshotLinks(movie);
 
-      // If screenshots are empty in moviesdb, look into StreamLinksDB.movie_screenshots
-      if (movieScreenshots.length === 0) {
-        // Collect all potential IDs from the movie to match with source_message_id or file_id
-        const movieIds = new Set();
-        
-        // Add the movie's own ID if it exists
-        if (movie.id) movieIds.add(String(movie.id));
-        if (movie._id) movieIds.add(String(movie._id));
+      // Look into StreamLinksDB.movie_screenshots for additional screenshots
+      // Collect all potential IDs from the movie to match with source_message_id or file_id
+      const movieIds = new Set();
+      
+      // Add the movie's own ID if it exists
+      if (movie.id) movieIds.add(String(movie.id));
+      if (movie._id) movieIds.add(String(movie._id));
 
-        // 1. Check movie.downloadLinks
-        if (movie.downloadLinks) {
-          movie.downloadLinks.forEach((link) => {
-            const id = extractStorageId(link.url);
-            if (id) movieIds.add(String(id));
-          });
-        }
-        
-        // 2. Check movie.telegramLinks
-        if (movie.telegramLinks) {
-          movie.telegramLinks.forEach((link) => {
-            if (link.fileId) movieIds.add(String(link.fileId));
-          });
-        }
+      // 1. Check movie.downloadLinks
+      if (movie.downloadLinks) {
+        movie.downloadLinks.forEach((link) => {
+          const id = extractStorageId(link.url);
+          if (id) movieIds.add(String(id));
+        });
+      }
+      
+      // 2. Check movie.telegramLinks
+      if (movie.telegramLinks) {
+        movie.telegramLinks.forEach((link) => {
+          if (link.fileId) movieIds.add(String(link.fileId));
+        });
+      }
 
-        // 3. Check seasons for TV shows (episodes and full season files)
-        if (movie.seasons) {
-          movie.seasons.forEach((season) => {
-            // Check full season files
-            if (season.fullSeasonFiles) {
-              season.fullSeasonFiles.forEach((file) => {
-                file.downloadLinks?.forEach((link) => {
-                  const id = extractStorageId(link.url);
-                  if (id) movieIds.add(String(id));
-                });
-                file.telegramLinks?.forEach((link) => {
-                  if (link.fileId) movieIds.add(String(link.fileId));
-                });
+      // 3. Check seasons for TV shows (episodes and full season files)
+      if (movie.seasons) {
+        movie.seasons.forEach((season) => {
+          // Check full season files
+          if (season.fullSeasonFiles) {
+            season.fullSeasonFiles.forEach((file) => {
+              file.downloadLinks?.forEach((link) => {
+                const id = extractStorageId(link.url);
+                if (id) movieIds.add(String(id));
               });
-            }
-            // Check individual episodes
-            if (season.episodes) {
-              season.episodes.forEach((episode) => {
-                episode.downloadLinks?.forEach((link) => {
-                  const id = extractStorageId(link.url);
-                  if (id) movieIds.add(String(id));
-                });
-                episode.telegramLinks?.forEach((link) => {
-                  if (link.fileId) movieIds.add(String(link.fileId));
-                });
+              file.telegramLinks?.forEach((link) => {
+                if (link.fileId) movieIds.add(String(link.fileId));
               });
-            }
-          });
-        }
+            });
+          }
+          // Check individual episodes
+          if (season.episodes) {
+            season.episodes.forEach((episode) => {
+              episode.downloadLinks?.forEach((link) => {
+                const id = extractStorageId(link.url);
+                if (id) movieIds.add(String(id));
+              });
+              episode.telegramLinks?.forEach((link) => {
+                if (link.fileId) movieIds.add(String(link.fileId));
+              });
+            });
+          }
+        });
+      }
 
-        // Match with screenshotDocs using source_message_id OR file_id
-        for (const doc of screenshotDocs) {
-          const matchFound = 
-            (doc.source_message_id && movieIds.has(String(doc.source_message_id))) ||
-            (doc.file_id && movieIds.has(String(doc.file_id)));
+      // Match with screenshotDocs using source_message_id OR file_id
+      for (const doc of screenshotDocs) {
+        const matchFound = 
+          (doc.source_message_id && movieIds.has(String(doc.source_message_id))) ||
+          (doc.file_id && movieIds.has(String(doc.file_id)));
 
-          if (matchFound) {
-            movieScreenshots = extractScreenshotLinks(doc);
-            if (movieScreenshots.length > 0) break;
+        if (matchFound) {
+          const docScreenshots = extractScreenshotLinks(doc);
+          if (docScreenshots.length > 0) {
+            // Merge screenshots, avoiding duplicates
+            movieScreenshots = [...new Set([...movieScreenshots, ...docScreenshots])];
           }
         }
       }
