@@ -51,50 +51,64 @@ export const handler = async (event, context) => {
     // 3. Match logic
     const enrichedMovies = movies.map((movie) => {
       let movieScreenshots = extractScreenshotLinks(movie);
-      const movieIds = new Set();
       
-      // Collect all IDs from various link types
+      // Store IDs as strings for easy comparison
+      const movieIds = new Set();
       const addId = (id) => { if (id) movieIds.add(String(id)); };
 
-      if (movie.downloadLinks) movie.downloadLinks.forEach(l => addId(extractStorageId(l.url)));
-      if (movie.telegramLinks) movie.telegramLinks.forEach(l => addId(l.fileId));
+      // Get IDs from download links
+      if (movie.downloadLinks) {
+        movie.downloadLinks.forEach(l => addId(extractStorageId(l.url)));
+      }
       
+      // Get IDs from telegram links
+      if (movie.telegramLinks) {
+        movie.telegramLinks.forEach(l => addId(l.fileId));
+      }
+      
+      // Get IDs from seasons/episodes
       if (movie.seasons) {
         movie.seasons.forEach(s => {
-          if (s.fullSeasonFiles) s.fullSeasonFiles.forEach(f => {
-            f.downloadLinks?.forEach(l => addId(extractStorageId(l.url)));
-            f.telegramLinks?.forEach(l => addId(l.fileId));
-          });
-          if (s.episodes) s.episodes.forEach(e => {
-            e.downloadLinks?.forEach(l => addId(extractStorageId(l.url)));
-            e.telegramLinks?.forEach(l => addId(l.fileId));
-          });
+          if (s.fullSeasonFiles) {
+            s.fullSeasonFiles.forEach(f => {
+              if (f.downloadLinks) f.downloadLinks.forEach(l => addId(extractStorageId(l.url)));
+              if (f.telegramLinks) f.telegramLinks.forEach(l => addId(l.fileId));
+            });
+          }
+          if (s.episodes) {
+            s.episodes.forEach(e => {
+              if (e.downloadLinks) e.downloadLinks.forEach(l => addId(extractStorageId(l.url)));
+              if (e.telegramLinks) e.telegramLinks.forEach(l => addId(l.fileId));
+            });
+          }
         });
       }
 
-      // Matching process
+      // Matching process - Check every screenshot document
       for (const doc of screenshotDocs) {
-        // IMPORTANT: source_message_id might be stored as a Number in DB, but movieIds has Strings
+        // Try to match by source_message_id, file_id, OR the document's _id
         const sourceId = doc.source_message_id ? String(doc.source_message_id) : null;
         const fileId = doc.file_id ? String(doc.file_id) : null;
+        const docId = doc._id ? String(doc._id) : null;
 
-        if ((sourceId && movieIds.has(sourceId)) || (fileId && movieIds.has(fileId))) {
+        if (
+          (sourceId && movieIds.has(sourceId)) || 
+          (fileId && movieIds.has(fileId)) ||
+          (docId && movieIds.has(docId))
+        ) {
           const docScreenshots = extractScreenshotLinks(doc);
           if (docScreenshots.length > 0) {
             movieScreenshots = [...new Set([...movieScreenshots, ...docScreenshots])];
-            console.log(`[LOG] Matched movie "${movie.title}" with screenshots via ID: ${sourceId || fileId}`);
           }
         }
       }
 
-      // EXACTLY AS IT WAS BEFORE
       return { ...movie, screenshots: movieScreenshots };
     });
 
     return {
       statusCode: 200,
       headers,
-      // EXACTLY AS IT WAS BEFORE
       body: JSON.stringify({ movies: enrichedMovies }),
     };
   } catch (error) {
