@@ -3,22 +3,19 @@ import Movie from "./moviesSchema.js";
 
 const extractStorageId = (url = "") => {
   if (!url) return null;
-  // Specifically target the /dl/ID/ pattern shown in your examples
+  // Capture the ID between /dl/ and the next /
   const match = url.match(/\/dl\/(\d+)\//);
   return match ? match[1] : null;
 };
 
 const extractScreenshotLinks = (doc = {}) => {
   if (!doc) return [];
-  // Check all possible screenshot fields used by the bot and website
-  if (Array.isArray(doc.screenshots) && doc.screenshots.length > 0) {
-    return doc.screenshots.filter((s) => typeof s === "string" && s.trim());
-  }
-  if (Array.isArray(doc.screenshot_preview_links) && doc.screenshot_preview_links.length > 0) {
-    return doc.screenshot_preview_links.filter((s) => typeof s === "string" && s.trim());
-  }
-  if (Array.isArray(doc.screenshot_links) && doc.screenshot_links.length > 0) {
-    return doc.screenshot_links.filter((s) => typeof s === "string" && s.trim());
+  // Standard fields for screenshots across bot and web
+  const fields = ['screenshots', 'screenshot_preview_links', 'screenshot_links', 'screenshotPreviewLinks', 'screenshotLinks'];
+  for (const field of fields) {
+    if (Array.isArray(doc[field]) && doc[field].length > 0) {
+      return doc[field].filter((s) => typeof s === "string" && s.trim());
+    }
   }
   return [];
 };
@@ -39,86 +36,58 @@ export const handler = async (event, context) => {
     await connect();
     const streamLinksConn = await connectStreamLinks();
 
-    // 1. Fetch all movies from moviesdb
+    // 1. Fetch movies
     const movies = await Movie.find().sort({ createdAt: -1 }).lean();
 
-    // 2. Fetch all screenshot documents from StreamLinksDB.movie_screenshots
+    // 2. Fetch screenshots
     let screenshotDocs = [];
     try {
       screenshotDocs = await streamLinksConn.collection("movie_screenshots").find({}).toArray();
+      console.log(`[LOG] Fetched ${screenshotDocs.length} screenshot docs from StreamLinksDB`);
     } catch (err) {
-      console.warn("Error fetching movie_screenshots collection:", err.message);
+      console.error("[ERROR] Failed to fetch screenshots:", err.message);
     }
 
-    // 3. Map screenshots to movies using robust ID matching
+    // 3. Match logic
     const enrichedMovies = movies.map((movie) => {
-      // Start with screenshots already in the movie doc (if any)
       let movieScreenshots = extractScreenshotLinks(movie);
-
-      // Collect all potential IDs from the movie to match with source_message_id
       const movieIds = new Set();
       
-      // Extract IDs from downloadLinks (the /dl/ID/ part)
-      if (movie.downloadLinks) {
-        movie.downloadLinks.forEach((link) => {
-          const id = extractStorageId(link.url);
-          if (id) movieIds.add(String(id));
-        });
-      }
+      // Collect all IDs from various link types
+      const addId = (id) => { if (id) movieIds.add(String(id)); };
+
+      if (movie.downloadLinks) movie.downloadLinks.forEach(l => addId(extractStorageId(l.url)));
+      if (movie.telegramLinks) movie.telegramLinks.forEach(l => addId(l.fileId));
       
-      // Extract IDs from telegramLinks (fileId)
-      if (movie.telegramLinks) {
-        movie.telegramLinks.forEach((link) => {
-          if (link.fileId) movieIds.add(String(link.fileId));
-        });
-      }
-
-      // Extract IDs from seasons (episodes and full season files)
       if (movie.seasons) {
-        movie.seasons.forEach((season) => {
-          if (season.fullSeasonFiles) {
-            season.fullSeasonFiles.forEach((file) => {
-              file.downloadLinks?.forEach((link) => {
-                const id = extractStorageId(link.url);
-                if (id) movieIds.add(String(id));
-              });
-              file.telegramLinks?.forEach((link) => {
-                if (link.fileId) movieIds.add(String(link.fileId));
-              });
-            });
-          }
-          if (season.episodes) {
-            season.episodes.forEach((episode) => {
-              episode.downloadLinks?.forEach((link) => {
-                const id = extractStorageId(link.url);
-                if (id) movieIds.add(String(id));
-              });
-              episode.telegramLinks?.forEach((link) => {
-                if (link.fileId) movieIds.add(String(link.fileId));
-              });
-            });
-          }
+        movie.seasons.forEach(s => {
+          if (s.fullSeasonFiles) s.fullSeasonFiles.forEach(f => {
+            f.downloadLinks?.forEach(l => addId(extractStorageId(l.url)));
+            f.telegramLinks?.forEach(l => addId(l.fileId));
+          });
+          if (s.episodes) s.episodes.forEach(e => {
+            e.downloadLinks?.forEach(l => addId(extractStorageId(l.url)));
+            e.telegramLinks?.forEach(l => addId(l.fileId));
+          });
         });
       }
 
-      // Match with screenshotDocs using source_message_id (as shown in your MongoDB screenshot)
+      // Matching process
       for (const doc of screenshotDocs) {
-        // source_message_id in your screenshot matches the ID from your /dl/ links
-        const matchFound = doc.source_message_id && movieIds.has(String(doc.source_message_id));
+        // IMPORTANT: source_message_id might be stored as a Number in DB, but movieIds has Strings
+        const sourceId = doc.source_message_id ? String(doc.source_message_id) : null;
+        const fileId = doc.file_id ? String(doc.file_id) : null;
 
-        if (matchFound) {
+        if ((sourceId && movieIds.has(sourceId)) || (fileId && movieIds.has(fileId))) {
           const docScreenshots = extractScreenshotLinks(doc);
           if (docScreenshots.length > 0) {
-            // Add these screenshots to the movie, avoiding duplicates
             movieScreenshots = [...new Set([...movieScreenshots, ...docScreenshots])];
+            console.log(`[LOG] Matched movie "${movie.title}" with screenshots via ID: ${sourceId || fileId}`);
           }
         }
       }
 
-      return {
-        ...movie,
-        screenshots: movieScreenshots,
-      };
+      return { ...movie, screenshots: movieScreenshots };
     });
 
     return {
@@ -127,11 +96,11 @@ export const handler = async (event, context) => {
       body: JSON.stringify({ movies: enrichedMovies }),
     };
   } catch (error) {
-    console.error("Error fetching movies:", error);
+    console.error("[CRITICAL ERROR]:", error);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: "Failed to load movies" }),
+      body: JSON.stringify({ error: "Internal Server Error" }),
     };
   }
 };
