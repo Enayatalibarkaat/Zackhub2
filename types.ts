@@ -54,9 +54,9 @@ export interface Movie {
   runtime?: number; // in minutes
   tagline?: string;
   backdropUrl?: string;
+  screenshots?: string[];
   isRecommended?: boolean; // <--- NEW: Ye line add ki hai
   showTelegramFiles?: boolean;
-  screenshots?: string[];
   screenshot_preview_links?: string[];
   screenshotPreviewLinks?: string[];
   screenshotLinks?: string[];
