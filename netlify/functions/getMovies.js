@@ -1,13 +1,6 @@
 import { connect, connectStreamLinks } from "./connect.js";
 import Movie from "./moviesSchema.js";
 
-const extractStorageId = (url = "") => {
-  if (!url) return null;
-  // Capture the ID between /dl/ and the next /
-  const match = url.match(/\/dl\/(\d+)\//);
-  return match ? match[1] : null;
-};
-
 const extractScreenshotLinks = (doc = {}) => {
   if (!doc) return [];
   // Standard fields for screenshots across bot and web
@@ -18,6 +11,14 @@ const extractScreenshotLinks = (doc = {}) => {
     }
   }
   return [];
+};
+
+// Helper function to clean text for better matching
+const cleanText = (text) => {
+  if (!text) return "";
+  return text.toLowerCase()
+    .replace(/[^a-z0-9]/g, '') // Remove all special characters and spaces
+    .trim();
 };
 
 export const handler = async (event, context) => {
@@ -52,49 +53,19 @@ export const handler = async (event, context) => {
     const enrichedMovies = movies.map((movie) => {
       let movieScreenshots = extractScreenshotLinks(movie);
       
-      // Store IDs as strings for easy comparison
-      const movieIds = new Set();
-      const addId = (id) => { if (id) movieIds.add(String(id)); };
-
-      // Get IDs from download links
-      if (movie.downloadLinks) {
-        movie.downloadLinks.forEach(l => addId(extractStorageId(l.url)));
-      }
-      
-      // Get IDs from telegram links
-      if (movie.telegramLinks) {
-        movie.telegramLinks.forEach(l => addId(l.fileId));
-      }
-      
-      // Get IDs from seasons/episodes
-      if (movie.seasons) {
-        movie.seasons.forEach(s => {
-          if (s.fullSeasonFiles) {
-            s.fullSeasonFiles.forEach(f => {
-              if (f.downloadLinks) f.downloadLinks.forEach(l => addId(extractStorageId(l.url)));
-              if (f.telegramLinks) f.telegramLinks.forEach(l => addId(l.fileId));
-            });
-          }
-          if (s.episodes) {
-            s.episodes.forEach(e => {
-              if (e.downloadLinks) e.downloadLinks.forEach(l => addId(extractStorageId(l.url)));
-              if (e.telegramLinks) e.telegramLinks.forEach(l => addId(l.fileId));
-            });
-          }
-        });
-      }
+      const cleanMovieTitle = cleanText(movie.title);
 
       // Matching process - Check every screenshot document
       for (const doc of screenshotDocs) {
-        // Try to match by source_message_id, file_id, OR the document's _id
-        const sourceId = doc.source_message_id ? String(doc.source_message_id) : null;
-        const fileId = doc.file_id ? String(doc.file_id) : null;
-        const docId = doc._id ? String(doc._id) : null;
+        // Match by Title vs movie_key or _id
+        const docKey = doc.movie_key ? cleanText(doc.movie_key) : "";
+        const docId = doc._id ? cleanText(String(doc._id)) : "";
 
+        // Agar movie ka title, database ke movie_key ya _id ke andar milta hai
         if (
-          (sourceId && movieIds.has(sourceId)) || 
-          (fileId && movieIds.has(fileId)) ||
-          (docId && movieIds.has(docId))
+          (docKey && docKey.includes(cleanMovieTitle)) || 
+          (docId && docId.includes(cleanMovieTitle)) ||
+          (cleanMovieTitle && docKey.includes(cleanMovieTitle.substring(0, 10))) // Match first 10 chars as fallback
         ) {
           const docScreenshots = extractScreenshotLinks(doc);
           if (docScreenshots.length > 0) {
@@ -103,7 +74,12 @@ export const handler = async (event, context) => {
         }
       }
 
-      return { ...movie, screenshots: movieScreenshots };
+      return { 
+        ...movie, 
+        id: movie._id ? String(movie._id) : movie.id,
+        _id: undefined,
+        screenshots: movieScreenshots 
+      };
     });
 
     return {
