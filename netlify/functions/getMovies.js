@@ -52,10 +52,15 @@ export const handler = async (event, context) => {
     const enrichedMovies = movies.map((movie) => {
       let movieScreenshots = extractScreenshotLinks(movie);
 
+      // If screenshots are empty in moviesdb, look into StreamLinksDB.movie_screenshots
       if (movieScreenshots.length === 0) {
-        // Collect all potential IDs from the movie
+        // Collect all potential IDs from the movie to match with source_message_id or file_id
         const movieIds = new Set();
         
+        // Add the movie's own ID if it exists
+        if (movie.id) movieIds.add(String(movie.id));
+        if (movie._id) movieIds.add(String(movie._id));
+
         // 1. Check movie.downloadLinks
         if (movie.downloadLinks) {
           movie.downloadLinks.forEach((link) => {
@@ -101,9 +106,13 @@ export const handler = async (event, context) => {
           });
         }
 
-        // Match with screenshotDocs using source_message_id
+        // Match with screenshotDocs using source_message_id OR file_id
         for (const doc of screenshotDocs) {
-          if (doc.source_message_id && movieIds.has(String(doc.source_message_id))) {
+          const matchFound = 
+            (doc.source_message_id && movieIds.has(String(doc.source_message_id))) ||
+            (doc.file_id && movieIds.has(String(doc.file_id)));
+
+          if (matchFound) {
             movieScreenshots = extractScreenshotLinks(doc);
             if (movieScreenshots.length > 0) break;
           }
