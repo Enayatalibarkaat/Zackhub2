@@ -3,12 +3,14 @@ import Movie from "./moviesSchema.js";
 
 const extractStorageId = (url = "") => {
   if (!url) return null;
+  // Specifically target the /dl/ID/ pattern shown in your examples
   const match = url.match(/\/dl\/(\d+)\//);
   return match ? match[1] : null;
 };
 
 const extractScreenshotLinks = (doc = {}) => {
   if (!doc) return [];
+  // Check all possible screenshot fields used by the bot and website
   if (Array.isArray(doc.screenshots) && doc.screenshots.length > 0) {
     return doc.screenshots.filter((s) => typeof s === "string" && s.trim());
   }
@@ -34,13 +36,13 @@ export const handler = async (event, context) => {
   }
 
   try {
-    const mainConn = await connect();
+    await connect();
     const streamLinksConn = await connectStreamLinks();
 
-    // Fetch movies from moviesdb
+    // 1. Fetch all movies from moviesdb
     const movies = await Movie.find().sort({ createdAt: -1 }).lean();
 
-    // Fetch screenshots from StreamLinksDB
+    // 2. Fetch all screenshot documents from StreamLinksDB.movie_screenshots
     let screenshotDocs = [];
     try {
       screenshotDocs = await streamLinksConn.collection("movie_screenshots").find({}).toArray();
@@ -48,19 +50,15 @@ export const handler = async (event, context) => {
       console.warn("Error fetching movie_screenshots collection:", err.message);
     }
 
-    // Map screenshots to movies
+    // 3. Map screenshots to movies using robust ID matching
     const enrichedMovies = movies.map((movie) => {
+      // Start with screenshots already in the movie doc (if any)
       let movieScreenshots = extractScreenshotLinks(movie);
 
-      // Look into StreamLinksDB.movie_screenshots for additional screenshots
-      // Collect all potential IDs from the movie to match with source_message_id or file_id
+      // Collect all potential IDs from the movie to match with source_message_id
       const movieIds = new Set();
       
-      // Add the movie's own ID if it exists
-      if (movie.id) movieIds.add(String(movie.id));
-      if (movie._id) movieIds.add(String(movie._id));
-
-      // 1. Check movie.downloadLinks
+      // Extract IDs from downloadLinks (the /dl/ID/ part)
       if (movie.downloadLinks) {
         movie.downloadLinks.forEach((link) => {
           const id = extractStorageId(link.url);
@@ -68,17 +66,16 @@ export const handler = async (event, context) => {
         });
       }
       
-      // 2. Check movie.telegramLinks
+      // Extract IDs from telegramLinks (fileId)
       if (movie.telegramLinks) {
         movie.telegramLinks.forEach((link) => {
           if (link.fileId) movieIds.add(String(link.fileId));
         });
       }
 
-      // 3. Check seasons for TV shows (episodes and full season files)
+      // Extract IDs from seasons (episodes and full season files)
       if (movie.seasons) {
         movie.seasons.forEach((season) => {
-          // Check full season files
           if (season.fullSeasonFiles) {
             season.fullSeasonFiles.forEach((file) => {
               file.downloadLinks?.forEach((link) => {
@@ -90,7 +87,6 @@ export const handler = async (event, context) => {
               });
             });
           }
-          // Check individual episodes
           if (season.episodes) {
             season.episodes.forEach((episode) => {
               episode.downloadLinks?.forEach((link) => {
@@ -105,16 +101,15 @@ export const handler = async (event, context) => {
         });
       }
 
-      // Match with screenshotDocs using source_message_id OR file_id
+      // Match with screenshotDocs using source_message_id (as shown in your MongoDB screenshot)
       for (const doc of screenshotDocs) {
-        const matchFound = 
-          (doc.source_message_id && movieIds.has(String(doc.source_message_id))) ||
-          (doc.file_id && movieIds.has(String(doc.file_id)));
+        // source_message_id in your screenshot matches the ID from your /dl/ links
+        const matchFound = doc.source_message_id && movieIds.has(String(doc.source_message_id));
 
         if (matchFound) {
           const docScreenshots = extractScreenshotLinks(doc);
           if (docScreenshots.length > 0) {
-            // Merge screenshots, avoiding duplicates
+            // Add these screenshots to the movie, avoiding duplicates
             movieScreenshots = [...new Set([...movieScreenshots, ...docScreenshots])];
           }
         }
