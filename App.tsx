@@ -66,7 +66,7 @@ const App: React.FC = () => {
     fetch("/.netlify/functions/trackVisit", { method: "POST" }).catch(console.error);
     (async () => {
       try {
-        const res = await fetch("/.netlify/functions/getMovies");
+        const res = await fetch("/.netlify/functions/getMovies", { cache: 'no-store' });
         const json = await res.json();
         setMovies((json.movies || []) as Movie[]);
       } catch (err) {

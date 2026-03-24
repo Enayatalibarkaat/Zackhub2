@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 let cached = global.mongoose;
 
 if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null };
+  cached = global.mongoose = { conn: null, promise: null, streamLinksConn: null, streamLinksPromise: null };
 }
 
 export async function connect() {
@@ -23,4 +23,23 @@ export async function connect() {
 
   cached.conn = await cached.promise;
   return cached.conn;
+}
+
+export async function connectStreamLinks() {
+  if (cached.streamLinksConn) return cached.streamLinksConn;
+
+  if (!cached.streamLinksPromise) {
+    const uri = process.env.STREAMLINKS_MONGODB_URI || process.env.MONGODB_URI;
+    if (!uri) throw new Error("STREAMLINKS_MONGODB_URI is missing!");
+
+    cached.streamLinksPromise = mongoose
+      .createConnection(uri, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+      })
+      .asPromise();
+  }
+
+  cached.streamLinksConn = await cached.streamLinksPromise;
+  return cached.streamLinksConn;
 }
