@@ -260,29 +260,22 @@ const MovieDetails: React.FC<MovieDetailsProps> = ({ movie, onBack, onGoHome, is
                     </div>
                 </div>
 
-                {/* --- NEW: SCREENSHOTS SECTION --- */}
                 {movie.screenshots && movie.screenshots.length > 0 && (
-                  <div className="mb-10 p-4 bg-light-card dark:bg-brand-card rounded-lg shadow-md">
-                    <h2 className="text-2xl font-bold text-light-text dark:text-brand-text mb-4 flex items-center gap-2">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-brand-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      Screenshots
-                    </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {movie.screenshots.map((shot, index) => (
-                        <div key={index} className="rounded-lg overflow-hidden shadow-md border border-gray-200 dark:border-gray-700 group cursor-pointer">
-                          <img
-                            src={shot}
-                            alt={`${movie.title} screenshot ${index + 1}`}
-                            className="w-full h-auto object-cover group-hover:scale-110 transition-transform duration-500 ease-in-out"
-                            referrerPolicy="no-referrer"
-                            loading="lazy"
-                          />
+                    <div className="mb-10">
+                        <h2 className="text-2xl font-bold text-light-text dark:text-brand-text mb-4">Screenshots</h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {movie.screenshots.map((screenshot, index) => (
+                                <div key={index} className="rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300">
+                                    <img 
+                                        src={screenshot} 
+                                        alt={`Screenshot ${index + 1}`} 
+                                        className="w-full h-auto object-cover hover:scale-105 transition-transform duration-300"
+                                        referrerPolicy="no-referrer"
+                                    />
+                                </div>
+                            ))}
                         </div>
-                      ))}
                     </div>
-                  </div>
                 )}
 
                 {movie.trailerLink && (
