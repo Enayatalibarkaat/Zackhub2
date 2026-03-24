@@ -239,6 +239,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       backdropUrl: m.backdropUrl || "",
       isRecommended: m.isRecommended || false,
       showTelegramFiles: !!m.showTelegramFiles,
+      screenshots: m.screenshots || [],
     }));
 
   const fetchMovies = useCallback(async () => {
