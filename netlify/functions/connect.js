@@ -37,7 +37,8 @@ export async function connectStreamLinks() {
         useNewUrlParser: true,
         useUnifiedTopology: true,
       })
-      .asPromise();
+      .asPromise()
+      .then(conn => conn.useDb('StreamLinksDB'));
   }
 
   cached.streamLinksConn = await cached.streamLinksPromise;
